@@ -33,16 +33,17 @@ static ClBoolT udpPriorityChangePossible = CL_TRUE;  /* Don't attempt to change 
 static struct hashStruct *gIocUdpMap[IOC_UDP_MAP_SIZE];
 static CL_LIST_HEAD_DECLARE(gIocUdpMapList);
 extern ClIocNodeAddressT gIocLocalBladeAddress;
-static ClPluginHelperVirtualIpAddressT gVirtualIp;
+ClPluginHelperVirtualIpAddressT gVirtualIp;
 ClBoolT gClUdpUseExistingIp = CL_FALSE;
 static ClBoolT gUdpInit = CL_FALSE;
 ClBoolT gClSimulationMode = CL_FALSE;
-ClBoolT gClNodeRepresentative = CL_FALSE;
 ClInt32T gClProtocol = IPPROTO_UDP;
 ClInt32T gClSockType = SOCK_DGRAM;
 ClInt32T gClCmsgHdrLen;
 struct cmsghdr *gClCmsgHdr;
 static ClUint32T gClBindOffset;
+
+extern ClBoolT mcastPeerAddr(ClCharT *addStr, ClUint8T status);
 
 typedef struct ClUdpAddrCacheEntry
 {
@@ -282,6 +283,7 @@ ClRcT clIocUdpMapDel(ClIocNodeAddressT slot)
 {
     ClRcT rc = CL_OK;
     ClIocUdpMapT *map = NULL;
+    clOsalMutexLock(&gXportCtrl.mutex);
     if((map = iocUdpMapFind(slot)))
     {
         udpMapDel(map);
@@ -289,6 +291,7 @@ ClRcT clIocUdpMapDel(ClIocNodeAddressT slot)
         free(map);
     }
     else rc = CL_ERR_NOT_EXIST;
+    clOsalMutexUnlock(&gXportCtrl.mutex);
     return rc;
 }
 
@@ -304,6 +307,7 @@ ClRcT clUdpMapWalk(ClRcT (*callback)(ClIocUdpMapT *map, void *cookie), void *coo
     ClUint32T numEntries = 0, i;
     static ClUint32T growMask = 7;
 
+    clOsalMutexLock(&gXportCtrl.mutex);
     /*
      * Accumulate the map first and then send all lockless. This would be faster
      * then playing lock/unlock futex wait/wakeup games.
@@ -506,29 +510,48 @@ static ClRcT _clUdpMapUpdateNotification(ClIocNotificationT *notification, ClPtr
     ClCharT addStr[INET_ADDRSTRLEN] = {0};
     ClIocNotificationIdT notificationId = (ClIocNotificationIdT) ntohl(notification->id);
     ClIocNodeAddressT nodeAddress = ntohl(notification->nodeAddress.iocPhyAddress.nodeAddress);
-    clOsalMutexLock(&gXportCtrl.mutex);
     switch (notificationId) 
     {
         case CL_IOC_COMP_ARRIVAL_NOTIFICATION:
         case CL_IOC_NODE_ARRIVAL_NOTIFICATION:
         case CL_IOC_NODE_LINK_UP_NOTIFICATION:
+        {
+            clOsalMutexLock(&gXportCtrl.mutex);
             if (!(map = iocUdpMapFind(nodeAddress)))
             {
-                clUdpAddrGet(nodeAddress, addStr);
+                clOsalMutexUnlock(&gXportCtrl.mutex);
+                ClRcT rc = clUdpAddrGet(nodeAddress, addStr);
+                if (rc != CL_OK)
+                  goto out;
+
+                /* If specific peer address, mark it as up */
+                mcastPeerAddr(addStr, CL_IOC_NODE_UP);
+
+                clOsalMutexLock(&gXportCtrl.mutex);
                 iocUdpMapAdd(addStr, nodeAddress);
             }
-            break;
+            clOsalMutexUnlock(&gXportCtrl.mutex);
+          }
+          break;
         case CL_IOC_NODE_LEAVE_NOTIFICATION:
         case CL_IOC_NODE_LINK_DOWN_NOTIFICATION:
             if (nodeAddress != gIocLocalBladeAddress)
             {
-                clIocUdpMapDel(nodeAddress);
+              ClRcT rc = clUdpAddrGet(nodeAddress, addStr);
+              ClBoolT isPeerAddr = CL_FALSE;
+              if (rc == CL_OK)
+              {
+                /* If specific peer address, mark it as down */
+                isPeerAddr = mcastPeerAddr(addStr, CL_IOC_NODE_DOWN);
+              }
+              if (!isPeerAddr)
+                clIocUdpMapDel(nodeAddress); /*remove entry from the map*/
             }
             break;
         default:
             break;
     }
-    clOsalMutexUnlock(&gXportCtrl.mutex);
+    out:
     return CL_OK;
 }
 
@@ -648,7 +671,13 @@ static ClRcT clUdpGetNodeIpAddress(const ClCharT *xportType, const ClCharT *devI
         {
             rc = clPluginHelperDevToIpAddress(devIf, hostAddress);
             if (rc == CL_OK) clLogInfo("UDP","INI","Use existing IP address [%s] as this nodes transport address.", hostAddress);
-            else clLogError("UDP","INI","Configured to use an existing IP address for message transport.  But address lookup failed on device [%s] error [0x%x]", devIf, rc);
+            else
+            {
+                clLogError("UDP","INI","Configured to use an existing IP address for message transport.  But address lookup failed on device [%s] error [0x%x]", devIf, rc);
+                // Not a good idea to continue with the wrong address.  Exit here.
+                printf("IP address lookup failed on configured ethernet device [%s]. Exiting\n", devIf);                
+                exit(1);
+            }            
         }
         
         if (rc != CL_OK)
@@ -750,10 +779,57 @@ ClRcT xportInit(const ClCharT *xportType, ClInt32T xportId, ClBoolT nodeRep)
         gClUdpXportType[0] = 0;
         strncat(gClUdpXportType, xportType, sizeof(gClUdpXportType)-1);
     }
-    gClNodeRepresentative = nodeRep;
     gClUdpXportId = xportId;
     gClBindOffset = gIocLocalBladeAddress;
     gClUdpUseExistingIp = clParseEnvBoolean("ASP_UDP_USE_EXISTING_IP");
+
+    if (nodeRep)  // Make sure that the udp mode is consistent across the cluster
+    {
+        FILE* fp = fopen("udp.mode","w");
+        if (fp)
+        {
+            if (gClUdpUseExistingIp) fputs("CLOUD",fp);
+            else fputs("LAN",fp);            
+            fclose(fp);            
+        }        
+    }
+    else
+    {
+        char fname[256];
+        char* dir = getenv("ASP_RUNDIR");
+        if (!dir) dir = ".";
+        strncpy(fname,dir,255);
+        strncat(fname,"/",255);
+        strncat(fname,"udp.mode",255);
+        //snprinf(fname,255,"%s/udp.mode",dir)
+                 
+        FILE* fp = fopen(fname,"r");
+        if (fp)
+        {
+            char line[80];
+            char* l = fgets(line,80,fp);
+            if (l)
+            {
+                if ((gClUdpUseExistingIp)&&(strncmp("CLOUD",l,5) != 0))
+                {
+                    clLogCritical("XPORT", "INIT", "This process is configured to use UDP cloud mode, but the node is in LAN mode");
+                    fputs("This process is configured to use UDP cloud mode, but the node is in LAN mode\n", stderr);
+                    return CL_ERR_INVALID_STATE;
+                }
+                else if ((!gClUdpUseExistingIp)&&(strncmp("LAN",l,3) != 0))
+                {
+                    clLogCritical("XPORT", "INIT", "This process is configured to use UDP LAN mode, but the node is in cloud mode");
+                    fputs("This process is configured to use UDP LAN mode, but the node is in cloud mode\n", stderr);
+                    return CL_ERR_INVALID_STATE;                    
+                }            
+            }
+            fclose(fp);        
+        }
+    }
+    
+    
+    
+    
     gClSimulationMode = clParseEnvBoolean("ASP_MULTINODE");
     if(gClSimulationMode)
     {
@@ -1094,7 +1170,7 @@ ClRcT xportRecv(ClIocCommPortHandleT commPort, ClIocDispatchOptionT *pRecvOption
     struct sockaddr peerAddress;
     struct iovec ioVector;
     struct pollfd pollfd;
-    ClTimeT tm;
+    ClTimeT endTime;
     ClUint32T timeout;
     ClInt32T bytes = 0;
     ClInt32T pollStatus;
@@ -1102,13 +1178,13 @@ ClRcT xportRecv(ClIocCommPortHandleT commPort, ClIocDispatchOptionT *pRecvOption
     if(!pCommPort || !pRecvOption || !message || !pRecvParam)
     {
         rc = CL_ERR_INVALID_PARAMETER;
-        goto out;
+        return rc;
     }
 
     if(! (pCommPortPrivate = (ClIocUdpPrivateT*)clTransportPrivateDataGet(gClUdpXportId, pCommPort->portId)) )
     {
         rc = CL_ERR_NOT_EXIST;
-        goto out;
+        return rc;
     }
 
     if(!pBuffer)
@@ -1129,79 +1205,85 @@ ClRcT xportRecv(ClIocCommPortHandleT commPort, ClIocDispatchOptionT *pRecvOption
     msgHdr.msg_iovlen = 1;
     timeout = pRecvOption->timeout;
 
-    retry:
-    for(;;)
+    if (timeout == CL_IOC_TIMEOUT_FOREVER) endTime = CL_IOC_TIMEOUT_FOREVER;
+    else endTime = clOsalStopWatchTimeGet()/1000 + timeout;
+
+    rc = CL_ERR_TIMEOUT;
+    do 
     {
-        pollfd.fd = pCommPortPrivate->fd;
-        pollfd.events = POLLIN|POLLRDNORM;
-        pollfd.revents = 0;
-        tm = clOsalStopWatchTimeGet();
-        pollStatus = poll(&pollfd, 1, timeout);
-        if(pollStatus > 0) 
+        bytes = -1;
+        
+        do  // Get a packet
         {
-            if((pollfd.revents & (POLLIN|POLLRDNORM)))
+            pollfd.fd = pCommPortPrivate->fd;
+            pollfd.events = POLLIN|POLLRDNORM;
+            pollfd.revents = 0;
+
+            pollStatus = poll(&pollfd, 1, timeout);
+
+            if(pollStatus > 0) 
             {
-                recv:
-                bytes = recvmsg(pCommPortPrivate->fd, &msgHdr, 0);
-                if(bytes < 0 )
+                if((pollfd.revents & (POLLIN|POLLRDNORM)))
                 {
-                    if(errno == EINTR)
-                        goto recv;
-                    perror("Receive : ");
-                    clLogError(UDP_LOG_AREA_UDP,UDP_LOG_CTX_UDP_RECV,"recv error. errno = %d\n",errno);
-                    goto out;
+                    
+                    do
+                    {                    
+                        bytes = recvmsg(pCommPortPrivate->fd, &msgHdr, 0);
+                    } while (((bytes < 0 )&&(errno == EINTR))&&(endTime > clOsalStopWatchTimeGet()/1000));
+                
+                    if(bytes < 0 )
+                    {
+                        if (errno == EINTR) rc = CL_ERR_TIMEOUT;
+                        else
+                        {                            
+                        clLogError(UDP_LOG_AREA_UDP,UDP_LOG_CTX_UDP_RECV,"recv error. errno = %d %s\n",errno,strerror(errno));
+                        return CL_ERR_LIBRARY;
+                        }                        
+                        
+                    }
                 }
-            } 
-            else 
-            {
-                clLogError(UDP_LOG_AREA_UDP,UDP_LOG_CTX_UDP_RECV,"poll error. errno = %d\n", errno);
-                goto out;
+                else
+                {
+                    clLogError(UDP_LOG_AREA_UDP,UDP_LOG_CTX_UDP_RECV,"poll error. errno = %d\n", errno);
+                    return CL_ERR_LIBRARY;
+                }
             }
-        } 
-        else if(pollStatus < 0 ) 
+            else if (pollStatus < 0)
+            {                
+                if (errno != EINTR)
+                {                    
+                clLogError(UDP_LOG_AREA_UDP,UDP_LOG_CTX_UDP_RECV,"Error in poll. errno = %d\n",errno);
+                return CL_ERR_LIBRARY;               
+                }
+                
+            }
+            else // TIMEOUT (pollStatus == 0)
+            {
+                return CL_ERR_TIMEOUT;  // the while loop should be false anyway but hurry it along...                
+            }
+        } while ((bytes < 0) && (endTime > clOsalStopWatchTimeGet()/1000));
+        
+        if (bytes >= 0) // got a message
         {
-            if(errno == EINTR)
-                continue;
-            clLogError(UDP_LOG_AREA_UDP,UDP_LOG_CTX_UDP_RECV,"Error in poll. errno = %d\n",errno);
-            goto out;
-        } 
-        else 
-        {
-            rc = CL_ERR_TIMEOUT;
-            goto out;
+            ClRcT result = clIocDispatch(gClUdpXportType, commPort, pRecvOption, pBuffer, bytes, message, pRecvParam);
+            
+            if (CL_GET_ERROR_CODE(result) == CL_ERR_TRY_AGAIN)  // reset the timeout count
+            {
+               if (endTime != CL_IOC_TIMEOUT_FOREVER) endTime = clOsalStopWatchTimeGet()/1000 + timeout; 
+            }
+            else if (CL_GET_ERROR_CODE(result) == IOC_MSG_QUEUED)
+            {
+                endTime += 10; // If a fragment comes in, cheat a little on the end time to get another fragment
+            }
+            else // exit the loop.  We either got an error or a full message
+            {                
+                return(result);
+            }
         }
-        break;
-    }
 
-    rc = clIocDispatch(gClUdpXportType, commPort, pRecvOption, pBuffer, bytes, message, pRecvParam);
-
-    if(CL_GET_ERROR_CODE(rc) == CL_ERR_TRY_AGAIN)
-        goto retry;
-
-    if(CL_GET_ERROR_CODE(rc) == IOC_MSG_QUEUED)
-    {
-        ClUint32T elapsedTm;
-        if(timeout == CL_IOC_TIMEOUT_FOREVER)
-            goto retry;
-        elapsedTm = (clOsalStopWatchTimeGet() - tm)/1000;
-        if(elapsedTm < timeout)
-        {
-            timeout -= elapsedTm;
-            goto retry;
-        }
-        else
-        {
-            rc = CL_ERR_TIMEOUT;
-            clLogCritical(UDP_LOG_AREA_UDP,UDP_LOG_CTX_UDP_RECV,"Dropping a received fragmented-packet. "
-                                              "Could not receive the complete packet within "
-                                              "the specified timeout. Packet size is %d", bytes);
-
-        }
-    }
-
-    out:
+    } while (endTime > clOsalStopWatchTimeGet()/1000 );
+    
     return rc;
-
 }
 
 static ClRcT iocUdpSend(ClIocUdpMapT *map, void *args)
@@ -1303,7 +1385,9 @@ ClRcT xportSend(ClIocPortT port, ClUint32T priority, ClIocAddressT *address,
         map = iocUdpMapFind(address->iocPhyAddress.nodeAddress);
         if(!map)
         {
+            clOsalMutexUnlock(&gXportCtrl.mutex);
             clUdpAddrGet(address->iocPhyAddress.nodeAddress, addStr);
+            clOsalMutexLock(&gXportCtrl.mutex);
             map = iocUdpMapAdd(addStr, address->iocPhyAddress.nodeAddress);
             if(!map)
             {
@@ -1325,6 +1409,7 @@ ClRcT xportSend(ClIocPortT port, ClUint32T priority, ClIocAddressT *address,
     case CL_IOC_BROADCAST_ADDRESS_TYPE:
     bcast_send:
         sendArgs.port = address->iocPhyAddress.portId;
+        clOsalMutexUnlock(&gXportCtrl.mutex);
         rc = clUdpMapWalk(iocUdpSend, &sendArgs, 0);
         goto out;
         /*
@@ -1338,7 +1423,9 @@ ClRcT xportSend(ClIocPortT port, ClUint32T priority, ClIocAddressT *address,
         break;
 
     case CL_IOC_INTRANODE_ADDRESS_TYPE:
+        clOsalMutexUnlock(&gXportCtrl.mutex);
         clIocNodeCompsGet(clIocLocalAddressGet(), buff);
+        clOsalMutexLock(&gXportCtrl.mutex);
         map = iocUdpMapFind(clIocLocalAddressGet());
         if (map)
         {
@@ -1346,7 +1433,7 @@ ClRcT xportSend(ClIocPortT port, ClUint32T priority, ClIocAddressT *address,
             clOsalMutexUnlock(&gXportCtrl.mutex);
             for (i=0; i< CL_IOC_MAX_COMP_PORT; i++)
             {
-                if (i != port && (buff[i>>3] & (1 << (i&7))))
+                if (i != port && i != CL_IOC_XPORT_PORT && (buff[i>>3] & (1 << (i&7))))
                 {
                     sendArgs.port = i;
                     ClRcT retCode = iocUdpSend(&addrMap, &sendArgs);

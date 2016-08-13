@@ -189,7 +189,22 @@ extern "C"
     CL_OUT ClUint32T * pNumberOfEntries
     );
 
-
+/**
+ **************************************
+ *  \brief change configuration all component
+ *
+ *  \par Header File:
+ *  clIocApiExt.h
+ *
+ *  \par Library Files:
+ *  libClIoc
+ *
+ *  \param requestType configure change type.
+ *
+ *
+ *
+ */
+    ClRcT clConfigChange(ClConfigChange requestType);
 
 /** 
  ************************************** 

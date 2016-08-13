@@ -2427,7 +2427,9 @@ ClRcT clIocDispatch(const ClCharT *xportType, ClIocCommPortHandleT commPort, ClI
         if(pIocCommPort->notify == CL_IOC_NOTIFICATION_DISABLE &&
            (userHeader.protocolType == CL_IOC_PORT_NOTIFICATION_PROTO
             ||
-            userHeader.protocolType == CL_IOC_PROTO_ARP))
+            userHeader.protocolType == CL_IOC_PROTO_ARP
+			||
+			userHeader.protocolType == CL_IOC_CONFIG_CHANGE_PROTO))
         {
             clBufferClear(message);
             rc = CL_IOC_RC(CL_ERR_TRY_AGAIN);
@@ -3641,6 +3643,35 @@ ClRcT clIocTotalNeighborEntryGet(ClUint32T *pNumberOfEntries)
         }
     }
     return CL_OK;
+}
+
+ClRcT clConfigChange(ClConfigChange requestType)
+{
+    ClRcT rc = CL_OK;
+    ClBufferHandleT message = 0;
+    ClEoExecutionObjT *eoObj = NULL;
+    ClConfigChange configChangeType = requestType;
+    ClUint64T allComps = CL_IOC_ADDRESS_FORM(CL_IOC_INTRANODE_ADDRESS_TYPE, gIocLocalBladeAddress, CL_IOC_BROADCAST_ADDRESS);
+
+    rc = clEoMyEoObjectGet(&eoObj);
+    if (!eoObj)
+      return rc;
+
+    rc = clBufferCreate(&message);
+    if (rc != CL_OK)
+      return rc;
+
+    rc = clBufferNBytesWrite(message, (ClUint8T *) &configChangeType, sizeof(ClConfigChange));
+    if (rc != CL_OK)
+    {
+        clLogError("IOC", "TZC", "clBufferNBytesWrite failed with rc = %#x", rc);
+        goto out_delete;
+    }
+    ClIocSendOptionT sendOption = { .priority = CL_IOC_HIGH_PRIORITY, .timeout = 200 };
+    rc = clIocSend(eoObj->commObj, message, CL_IOC_CONFIG_CHANGE_PROTO, (ClIocAddressT*)&allComps, &sendOption);
+    out_delete:
+    clBufferDelete(&message);
+    return rc;
 }
 
 ClRcT clIocNeighborListGet(ClUint32T *pNumberOfEntries,

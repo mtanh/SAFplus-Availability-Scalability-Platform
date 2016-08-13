@@ -45,6 +45,9 @@
 #include <clCpmApi.h>
 #include <clAmfPluginApi.h>
 #include <clNodeCache.h>
+#include <clPluginHelper.h>
+#include <clTimerApi.h>
+#include <clClmTmsCommon.h>
 
 #define CL_UDP_HANDLER_MAX_SOCKETS            2
 #define UDP_CLUSTER_SYNC_WAIT_TIME 2 /* in seconds*/
@@ -74,12 +77,27 @@ static ClCharT eventHandlerInited = 0;
 static struct cmsghdr *gClMcastCmsgHdr;
 static ClInt32T gClMcastCmsgHdrLen;
 static ClInt32T gClMcastPort, gClMcastNotifPort;
-static ClIocAddrMapT *gClMcastPeers;
-static ClUint32T gClNumMcastPeers;
 static ClBoolT gClMcastSupport;
 static int gFd = -1;
 
+static ClIocAddrMapT *gClMcastPeers;
+static ClUint32T gClNumMcastPeers;
+static ClUint32T gGmsInitCallbackDone = CL_FALSE;
+static ClTimerHandleT gGmsInitHandleTimer = CL_HANDLE_INVALID_VALUE;
+static ClGmsHandleT gGmsCallbackHandle = CL_HANDLE_INVALID_VALUE;
+
+static ClTimerHandleT gUdpDiscoveryTimer = CL_HANDLE_INVALID_VALUE;
+static ClOsalTaskIdT eventHandlerThread=0;
+
+/* UDP local address */
+extern ClPluginHelperVirtualIpAddressT gVirtualIp;
+
 static ClRcT udpEventSubscribe(ClBoolT pollThread);
+
+/* Check and update peer address status */
+ClBoolT mcastPeerAddr(ClCharT *addStr, ClUint8T status);
+
+extern ClBoolT gIsNodeRepresentative;
 
 static void udpSyncCallback(ClIocPhysicalAddressT *srcAddr, ClPtrT arg)
 {
@@ -96,7 +114,12 @@ static void udpSyncCallback(ClIocPhysicalAddressT *srcAddr, ClPtrT arg)
          */
         clIocCompStatusSet(*srcAddr, CL_IOC_NODE_UP);
         clIocUdpMapAdd((struct sockaddr*)arg, srcAddr->nodeAddress, addStr);
-        clUdpAddrSet(srcAddr->nodeAddress, addStr);
+        ClRcT rc = clUdpAddrSet(srcAddr->nodeAddress, addStr);
+        if (rc == CL_OK)
+        {
+          /* If specific peer address, mark it as up */
+          mcastPeerAddr(addStr, CL_IOC_NODE_UP);
+        }
     }
 }
 
@@ -154,11 +177,41 @@ ClRcT clUdpNodeNotification(ClIocNodeAddressT node, ClIocNotificationIdT event)
         }
         else
         {
-            clIocUdpMapDel(node); /*remove entry from the map*/
+            ClCharT addStr[INET_ADDRSTRLEN] = {0};
+            ClBoolT isPeerAddr = CL_FALSE;
+            ClRcT rc = clUdpAddrGet(node, addStr);
+            if (rc == CL_OK)
+            {
+              /* If specific peer address, mark it as down */
+              isPeerAddr = mcastPeerAddr(addStr, CL_IOC_NODE_DOWN);
+            }
+
+            if (!isPeerAddr)
+              clIocUdpMapDel(node); /*remove entry from the map*/
         }
     }
 
     return rc;
+}
+
+ClBoolT mcastPeerAddr(ClCharT *addStr, ClUint8T status)
+{
+  ClUint32T i = 0;
+  clOsalMutexLock(&gIocEventHandlerSendLock);
+ 
+  /* If specific peer address, mark it as up */
+  for (i = 0; i < gClNumMcastPeers; ++i)
+  {
+      if (!strcmp(addStr, gClMcastPeers[i].addrstr))
+      {
+        /* This is static peer IP address */
+        gClMcastPeers[i].status = status;
+        clOsalMutexUnlock(&gIocEventHandlerSendLock);
+        return CL_TRUE;
+      }
+  }
+  clOsalMutexUnlock(&gIocEventHandlerSendLock);
+  return CL_FALSE;
 }
 
 /*
@@ -188,6 +241,7 @@ ClRcT clUdpNotifyPeer(ClIocUdpMapT *map, void *args)
 
         }
     }
+    clOsalMutexLock(&gIocEventHandlerSendLock);
 
     /* Filter out multicast address and specific peer address */
     for (i = 0; i < gClNumMcastPeers; ++i)
@@ -195,9 +249,11 @@ ClRcT clUdpNotifyPeer(ClIocUdpMapT *map, void *args)
         if (!strcmp(map->addrstr, gClMcastPeers[i].addrstr))
         {
             /* This is static peer IP address */
+            clOsalMutexUnlock(&gIocEventHandlerSendLock);
             return rc;
         }
     }
+    clOsalMutexUnlock(&gIocEventHandlerSendLock);
 
     struct iovec ioVector[1];
     memset(ioVector,  0, sizeof(ioVector));
@@ -240,10 +296,12 @@ ClRcT clUdpNotifyPeer(ClIocUdpMapT *map, void *args)
             clLogError("UDP", "PEER", "sendmsg failed with error [%s] for destination [%s]", strerror(errno), map->addrstr);
             rc = CL_ERR_NO_RESOURCE;
         }
+#if 0 //for debugging
         else
         {
             clLogDebug("UDP", "PEER", "Notification [%d] sent to node [%s], port [%d]", htonl(pNotification->id), map->addrstr, mcastNotifPort);
         }
+#endif
     }
     return rc;
 }
@@ -261,15 +319,17 @@ ClRcT clIocPeerList(ClIocUdpMapT *map, void *args)
     ClUint32T i = 0;
     ClBoolT found = CL_FALSE;
 
+    clOsalMutexLock(&gIocEventHandlerSendLock);
     /* Filter out multicast address and specific peer address */
     for (i = 0; i < gClNumMcastPeers; ++i)
     {
-        if (!strcmp(map->addrstr, gClMcastPeers[i].addrstr))
+        if (!strcmp(map->addrstr, gClMcastPeers[i].addrstr) && gClMcastPeers[i].status)
         {
             found = CL_TRUE;
             break;
         }
     }
+    clOsalMutexUnlock(&gIocEventHandlerSendLock);
 
     if (map->slot == gIocLocalBladeAddress || found)
     {
@@ -286,7 +346,10 @@ ClRcT clIocPeerList(ClIocUdpMapT *map, void *args)
       currentLeader = 0;
     }
 
-    clBufferCreate(&message);
+    rc = clBufferCreate(&message);
+    if (CL_OK != rc)
+      return rc;
+
     rc = clBufferNBytesWrite(message, (ClUint8T *) map, sizeof(*map));
     rc |= clBufferNBytesWrite(message, (ClUint8T*)&currentLeader, sizeof(currentLeader));
     if (rc == CL_OK)
@@ -344,6 +407,7 @@ static ClRcT clUdpReceivedPacket(ClUint32T socketType, struct msghdr *pMsgHdr) {
                     if (CL_OK == rc)
                     {
                         clUdpAddrSet(compAddr.nodeAddress, addStr);
+                        mcastPeerAddr(addStr, CL_IOC_NODE_UP);
                     }
                 }
                 else
@@ -390,6 +454,7 @@ static ClRcT clUdpReceivedPacket(ClUint32T socketType, struct msghdr *pMsgHdr) {
                         if (CL_OK == rc)
                         {
                             clUdpAddrSet(compAddr.nodeAddress, addStr);
+                            mcastPeerAddr(addStr, CL_IOC_NODE_UP);
                         }
                     }
                     handleNodeNotification(compAddr.nodeAddress, id);
@@ -455,6 +520,8 @@ static ClRcT clUdpReceivedPacket(ClUint32T socketType, struct msghdr *pMsgHdr) {
                     if (CL_OK == rc)
                     {
                         clUdpAddrSet(udpAddr.slot, addStr);
+                        /* If specific peer address, mark it as up */
+                        mcastPeerAddr(addStr, CL_IOC_NODE_UP);
                         clLogTrace("UDP", "PEER", "UDP address node from peer [%d:%s]", udpAddr.slot, udpAddr.addrstr);
                     }
                 }
@@ -496,7 +563,7 @@ static void clUdpEventHandler(ClPtrT pArg)
     };
     ClInt32T pollStatus;
     ClInt32T bytes;
-    ClUint32T timeout = CL_IOC_TIMEOUT_FOREVER;
+    ClUint32T timeout = 1000; //CL_IOC_TIMEOUT_FOREVER;
     ClUint32T recvErrors = 0;
 
     retry: 
@@ -519,7 +586,7 @@ static void clUdpEventHandler(ClPtrT pArg)
     while (threadContFlag)
     {
         pollStatus = poll(pollfds, numHandlers, timeout);
-        if (pollStatus > 0)
+        if ((pollStatus > 0)&&(threadContFlag))
         {
             for (i = 0; i < numHandlers; i++)
             {
@@ -558,11 +625,11 @@ static void clUdpEventHandler(ClPtrT pArg)
                     }
                     clUdpReceivedPacket(i, &msgHdr);
                 } 
-                else if ((pollfds[i].revents & (POLLHUP | POLLERR | POLLNVAL))) 
+                /*else if ((pollfds[i].revents & (POLLHUP | POLLERR | POLLNVAL))) 
                 {
                     clLogError(UDP_LOG_AREA,UDP_LOG_CTX_UDP_EVENT,
                                "Error : Handler \"poll\" hangup.\n");
-                }
+                }*/
             }
         } 
         else if (pollStatus < 0)
@@ -759,7 +826,8 @@ static ClRcT udpEventSubscribe(ClBoolT pollThread)
 
     if (pollThread)
     {
-        retCode = clOsalTaskCreateDetached(pTaskName, CL_OSAL_SCHED_OTHER, CL_OSAL_THREAD_PRI_NOT_APPLICABLE, 0, (void* (*)(void*)) &clUdpEventHandler, NULL);
+        CL_ASSERT(eventHandlerThread==0);
+        retCode = clOsalTaskCreateAttached(pTaskName, CL_OSAL_SCHED_OTHER, CL_OSAL_THREAD_PRI_NOT_APPLICABLE, 0, (void* (*)(void*)) &clUdpEventHandler, NULL, &eventHandlerThread);
         if (retCode != CL_OK)
         {
             clLogError( "UDP", "NOTIF", "Error : Event Handle thread did not start. error code 0x%x",retCode);
@@ -779,7 +847,7 @@ ClRcT clUdpNotify(ClIocNodeAddressT nodeAddress, ClUint32T portId, ClIocNotifica
     static ClUint32T nodeVersion = CL_VERSION_CODE(5, 0, 0);
 
     memset(&notification,0,sizeof(ClIocNotificationT));
-    if( (rc = udpMcastSetup() ) != CL_OK)
+    if( !gIsNodeRepresentative && (rc = udpMcastSetup() ) != CL_OK)
         return rc;
 
     if(gFd < 0)
@@ -808,6 +876,7 @@ ClRcT clUdpNotify(ClIocNodeAddressT nodeAddress, ClUint32T portId, ClIocNotifica
     ioVector[0].iov_base = (ClPtrT) &notification;
     ioVector[0].iov_len = sizeof(notification);
 
+    clOsalMutexLock(&gIocEventHandlerSendLock);
     for(i = 0; i < gClNumMcastPeers; ++i)
     {
         struct msghdr msg;
@@ -846,6 +915,7 @@ ClRcT clUdpNotify(ClIocNodeAddressT nodeAddress, ClUint32T portId, ClIocNotifica
         msg.msg_controllen = gClMcastCmsgHdrLen;
         msg.msg_flags = 0;
 
+        clOsalMutexUnlock(&gIocEventHandlerSendLock);
         if (sendmsg(gFd, &msg, 0) < 0)
         {
             clLogError(
@@ -856,12 +926,16 @@ ClRcT clUdpNotify(ClIocNodeAddressT nodeAddress, ClUint32T portId, ClIocNotifica
             rc = CL_ERR_NO_RESOURCE;
             goto out;
         }
+#if 0 //for debugging
         else
         {
             clLogDebug("UDP", "NOTIF", "Notification [%d] sent to node [%s], port [%d]", notifyId, gClMcastPeers[i].addrstr, mcastNotifPort);
         }
+#endif
+        clOsalMutexLock(&gIocEventHandlerSendLock);
     }
-
+    clOsalMutexUnlock(&gIocEventHandlerSendLock);
+    
     /* Sending to socket 0 for handling */
     clUdpMapWalk(clUdpNotifyPeer, &notification, 0);
 
@@ -869,25 +943,253 @@ ClRcT clUdpNotify(ClIocNodeAddressT nodeAddress, ClUint32T portId, ClIocNotifica
     return rc;
 }
 
+ClRcT notifyLink(ClIocNodeAddressT nodeAddress, ClUint32T portId, ClIocNotificationIdT notifyId) 
+{
+    ClRcT rc = CL_OK;
+    ClIocNotificationT notification = { 0 };
+    ClUint32T i;
+    static ClUint32T nodeVersion = CL_VERSION_CODE(5, 0, 0);
+
+    if(gFd < 0)
+    {
+        if(gClMcastSupport)
+        {
+            if( (gFd = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP) ) < 0)
+                return CL_ERR_LIBRARY;
+        }
+        else
+        {
+            if( (gFd = socket(PF_INET, gClSockType, gClProtocol) ) < 0)
+                return CL_ERR_LIBRARY;
+        }
+    }
+
+    notification.id = htonl(notifyId);
+    notification.protoVersion = htonl(CL_IOC_NOTIFICATION_VERSION);
+    notification.nodeVersion = htonl(nodeVersion);
+    notification.nodeAddress.iocPhyAddress.portId = htonl(portId);
+    notification.nodeAddress.iocPhyAddress.nodeAddress = htonl(nodeAddress);
+
+    struct iovec ioVector[1];
+    memset(ioVector,  0, sizeof(ioVector));
+    ioVector[0].iov_base = (ClPtrT) &notification;
+    ioVector[0].iov_len = sizeof(notification);
+
+    for(i = 0; i < gClNumMcastPeers; ++i)
+    {
+        struct msghdr msg;
+        memset(&msg, 0, sizeof(msg));
+        ClInt32T mcastNotifPort = gClMcastPort;
+        if(!gClMcastSupport && gClSimulationMode)
+        {
+            ClCharT *pLastOctet = strrchr(gClMcastPeers[i].addrstr, '.');
+            if(pLastOctet)
+            {
+                ClInt32T portOffset = atoi(pLastOctet+1);
+                mcastNotifPort += portOffset;
+            }
+        }
+
+        if (!strcmp(gClMcastPeers[i].addrstr, gVirtualIp.ip) || gClMcastPeers[i].status)
+            continue;
+
+        if(gClMcastPeers[i].family == PF_INET)
+        {
+            if(!gClMcastSupport && gClSimulationMode)
+            {
+                gClMcastPeers[i]._addr.sin_addr.sin_port = htons(mcastNotifPort);
+            }
+            msg.msg_name = (struct sockaddr*) &gClMcastPeers[i]._addr.sin_addr;
+            msg.msg_namelen = sizeof(gClMcastPeers[i]._addr.sin_addr);
+        }
+        else
+        {
+            if(!gClMcastSupport && gClSimulationMode)
+            {
+                gClMcastPeers[i]._addr.sin6_addr.sin6_port = htons(mcastNotifPort);
+            }
+            msg.msg_name = (struct sockaddr*)&gClMcastPeers[i]._addr.sin6_addr;
+            msg.msg_namelen = sizeof(gClMcastPeers[i]._addr.sin6_addr);
+        }
+        msg.msg_iov = ioVector;
+        msg.msg_iovlen = sizeof(ioVector) / sizeof(ioVector[0]);
+        msg.msg_control = gClMcastCmsgHdr;
+        msg.msg_controllen = gClMcastCmsgHdrLen;
+        msg.msg_flags = 0;
+
+        if(sendmsg(gFd, &msg, 0) < 0)
+        {
+          clLogError("UDP", "NOTIF", "sendmsg failed with error [%s] for destination [%s]", strerror(errno), gClMcastPeers[i].addrstr);
+          rc = CL_ERR_NO_RESOURCE;
+          goto out;
+        }
+        else
+        {
+          clLogDebug("UDP", "NOTIF", "Notification [%d] sent to node [%s], port [%d]", notifyId, gClMcastPeers[i].addrstr, mcastNotifPort);
+        }
+    }
+
+    out:
+    return rc;
+}
+
+/* Sending discovery packets every 2 seconds */
+static ClRcT clUdpDiscoverPeers(void)
+{
+  ClUint32T i = 0;
+  ClBoolT clusterSync;
+
+  clusterSync = CL_TRUE;
+
+  clOsalMutexLock(&gIocEventHandlerSendLock);
+
+  /* If specific peer address, mark it as down */
+  for(i = 0; i < gClNumMcastPeers; ++i)
+  {
+    if(strcmp(gClMcastPeers[i].addrstr, gVirtualIp.ip) && !gClMcastPeers[i].status)
+    {
+      clusterSync = CL_FALSE;
+      break;
+    }
+  }
+
+  if (!clusterSync && clIocHeartBeatIsRunning())
+  {
+    notifyLink(gIocLocalBladeAddress, CL_IOC_XPORT_PORT, CL_IOC_NODE_DISCOVER_NOTIFICATION);
+    notifyLink(gIocLocalBladeAddress, CL_IOC_XPORT_PORT, CL_IOC_NODE_ARRIVAL_NOTIFICATION);
+  }
+
+  clOsalMutexUnlock(&gIocEventHandlerSendLock);
+
+  // Dynamic peer addresses updating
+  if (clIocHeartBeatIsRunning())
+  {
+    ClUint32T temp;
+    clTransportMcastSupported(&temp);
+    if (temp != gClNumMcastPeers)
+    {
+      clOsalMutexLock(&gIocEventHandlerSendLock);
+      udpMcastSetup();
+      clOsalMutexUnlock(&gIocEventHandlerSendLock);
+    }
+  }
+
+  return CL_OK;
+}
 
 static ClRcT udpDiscoverPeers(void)
 {
     ClRcT rc = CL_ERR_UNSPECIFIED;
     //static ClTaskPoolHandleT task;
     //static ClTimerTimeOutT delay;
-    clOsalMutexLock(&gIocEventHandlerSendLock);
     /*
      * We could send multiple discovery packets to avoid loss or to play it safe. 
      * But not required for now ...
      */
     rc = clUdpNotify(gIocLocalBladeAddress, CL_IOC_XPORT_PORT, CL_IOC_NODE_DISCOVER_NOTIFICATION);
-    clOsalMutexUnlock(&gIocEventHandlerSendLock);
     if (rc == CL_OK)
     {
         sleep(UDP_CLUSTER_SYNC_WAIT_TIME);
         clLogInfo("UDP", "DISCOVER", "Cluster view sync complete. Discovered [%d] peers", gNumDiscoveredPeers);
     }    
     return rc;
+}
+
+/*
+ * Callback method to register TRACK_CHANGE
+ */
+static void _gmsClusterTrackCallback(ClGmsHandleT gmsHandle,
+									 ClGmsClusterNotificationBufferT *notificationBuffer,
+                                     ClUint32T                       numberOfMembers,
+                                     ClRcT                           rc)
+{
+  ClTimerTimeOutT timeOut = {.tsSec = UDP_CLUSTER_SYNC_WAIT_TIME,.tsMilliSec = 0};
+
+  clLogTrace("UDP", "GMS", "Received cluster track callback with leader [%d]", notificationBuffer->leader);
+
+  if (notificationBuffer->leader == -1 || notificationBuffer->leader != gIocLocalBladeAddress)
+  {
+    if (gUdpDiscoveryTimer != CL_HANDLE_INVALID_VALUE)
+    {
+      // Delete discovery timer
+      clTimerDelete(&gUdpDiscoveryTimer);
+      gUdpDiscoveryTimer = CL_HANDLE_INVALID_VALUE;
+    }
+  }
+  else if(gUdpDiscoveryTimer == CL_HANDLE_INVALID_VALUE)
+  {
+    /* Multiple send discovery packets */
+    rc = clTimerCreateAndStart(timeOut, CL_TIMER_REPETITIVE, CL_TIMER_SEPARATE_CONTEXT, (ClTimerCallBackT)clUdpDiscoverPeers, (void *) NULL,
+        &gUdpDiscoveryTimer);
+  }
+}
+
+/*
+ * Create timer to initialize gms.
+ */
+static ClRcT _gmsClusterTrackInit()
+{
+  ClRcT rc = CL_OK;
+  ClVersionT version = {'B',0x1,0x1};
+  ClGmsCallbacksT gGmsCallbacks = {
+          NULL,
+          (ClGmsClusterTrackCallbackT) _gmsClusterTrackCallback,
+          NULL,
+          NULL,
+  };
+  ClTimerTimeOutT timeout = { 2, 0 };
+
+  /*
+   * Contact GMS to get master addresses.
+   */
+  ClGmsClusterNotificationBufferT notBuffer;
+  memset((void*)&notBuffer, 0, sizeof(notBuffer));
+  memset(&notBuffer, '\0', sizeof(ClGmsClusterNotificationBufferT));
+
+  if(gGmsInitCallbackDone == CL_FALSE)
+  {
+    ClUint8T tempStatus;
+    ClIocPhysicalAddressT compAddr = {0};
+    compAddr.nodeAddress = gIocLocalBladeAddress;
+    compAddr.portId = CL_IOC_GMS_PORT;
+    rc = clIocCompStatusGet(compAddr, &tempStatus);
+    if(rc != CL_OK || tempStatus == CL_IOC_NODE_DOWN)
+    {
+      goto retry;
+    }
+    rc = clGmsInitialize(&gGmsCallbackHandle, &gGmsCallbacks, &version);
+    if(CL_OK != rc)
+    {
+      retry: 
+      if(CL_HANDLE_INVALID_VALUE != gGmsInitHandleTimer)
+      {
+        clTimerDelete(&gGmsInitHandleTimer);
+        gGmsInitHandleTimer = CL_HANDLE_INVALID_VALUE;
+      }
+      rc = clTimerCreateAndStart(timeout, CL_TIMER_ONE_SHOT, CL_TIMER_SEPARATE_CONTEXT, _gmsClusterTrackInit, (void *)NULL,
+          &gGmsInitHandleTimer);
+      if(CL_OK != rc)
+      {
+        clLogNotice("UDP", "NOT", "Failed to do GMS initialization, error [%#x]", rc);
+      }
+      return CL_OK;
+    }
+    // GMS init done
+    clTimerDelete(&gGmsInitHandleTimer);
+    gGmsInitHandleTimer = CL_HANDLE_INVALID_VALUE;
+
+    /*
+     * Register for track changes.
+     */
+    rc = clGmsClusterTrack(gGmsCallbackHandle, CL_GMS_TRACK_CHANGES, &notBuffer);
+    if(CL_OK != rc)
+    {
+      clLogNotice("UDP", "NOT", "The GMS cluster track function failed, error [%#x]", rc);
+    }
+
+    gGmsInitCallbackDone = CL_TRUE;
+  }
+  return rc;
 }
 
 ClRcT clUdpEventHandlerInitialize(void)
@@ -936,15 +1238,19 @@ ClRcT clUdpEventHandlerInitialize(void)
 
     udpDiscoverPeers(); /* shouldn't return till cluster sync interval */
 
+    if (clCpmIsSC())
+      /* Multiple send discovery packets */
+      rc = _gmsClusterTrackInit();
+
     /* I need to tell everyone that I went down in case the keep-alive hasn't kicked in yet */
-    if (gClNodeRepresentative)
+    if (gIsNodeRepresentative)
     {
         /* clUdpNotify(gIocLocalBladeAddress, CL_IOC_XPORT_PORT, CL_IOC_NODE_LEAVE_NOTIFICATION);
            sleep(1); */
         clUdpNotify(gIocLocalBladeAddress, CL_IOC_XPORT_PORT, CL_IOC_NODE_ARRIVAL_NOTIFICATION);
     }
     
-    clUdpNotify(gIocLocalBladeAddress, CL_IOC_CPM_PORT, CL_IOC_COMP_ARRIVAL_NOTIFICATION);
+    clUdpNotify(gIocLocalBladeAddress, CL_IOC_XPORT_PORT, CL_IOC_COMP_ARRIVAL_NOTIFICATION);
 
     out:
     return rc;
@@ -956,13 +1262,37 @@ ClRcT clUdpEventHandlerFinalize(void) {
     /* If service was never initialized, don't finalize */
     if (!eventHandlerInited)
         return CL_OK;
+    eventHandlerInited = 0;    
+    /* stop the clUdpEventHandler thread */
+    threadContFlag = CL_FALSE;
+    if (eventHandlerThread) clOsalTaskJoin(eventHandlerThread);
 
     eventHandlerInited = 0;
     clIocNotificationFinalize();
 
+    if (gGmsCallbackHandle)
+    {
+        clGmsFinalize(gGmsCallbackHandle);
+    }
+
     /* Closing only the data socket so the the event socket can get the event of this and it will comeout of the recview thread */
+    if(gUdpDiscoveryTimer != CL_HANDLE_INVALID_VALUE)
+    {
+        clTimerDelete(&gUdpDiscoveryTimer);
+        gUdpDiscoveryTimer = CL_HANDLE_INVALID_VALUE;
+    }
 
     clOsalMutexLock(&gIocEventHandlerSendLock);
+    /*
+     * Cleanup multicast peer addresses
+     */
+    if(gClMcastPeers)
+    {
+        clHeapFree(gClMcastPeers);
+        gClMcastPeers = NULL;
+        gClNumMcastPeers = 0;
+    }
+
     close(handlerFd[1]);
     numHandlers = numHandlers - 1;
     handlerFd[1] = -1;
@@ -973,13 +1303,5 @@ ClRcT clUdpEventHandlerFinalize(void) {
             timeout);
     clOsalMutexUnlock(&gIocEventHandlerClose.lock);
 
-    /*
-     * Cleanup multicast peer addresses
-     */
-    if(gClMcastPeers)
-    {
-        clHeapFree(gClMcastPeers);
-        gClMcastPeers = NULL;
-    }
     return CL_OK;
 }

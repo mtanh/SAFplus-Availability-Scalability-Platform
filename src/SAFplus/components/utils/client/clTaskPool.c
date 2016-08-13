@@ -517,7 +517,7 @@ ClRcT clTaskPoolStop(ClTaskPoolHandleT handle)
     ClTaskPoolT *tp = (ClTaskPoolT*)handle;
     ClOsalTaskIdT taskId = 0;
     ClInt32T i = 0;
-    ClTimerTimeOutT delay = { 0,500};
+    ClTimerTimeOutT delay = {.tsSec = 1, .tsMilliSec = 0};
 
     if(!tp) 
     {
