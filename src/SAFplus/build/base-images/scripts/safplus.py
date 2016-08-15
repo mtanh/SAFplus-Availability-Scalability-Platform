@@ -163,6 +163,10 @@ def is_simulation(): return bool(int(safplus_getenv('ASP_SIMULATION', default='0
    
 def is_tipc_build(): return bool(int(safplus_getenv('BUILD_TIPC', default='1')))
 
+def get_safplus_udp_use_existing_ip(): return safplus_getenv('ASP_UDP_USE_EXISTING_IP', default=None)
+
+def get_safplus_udp_link_name(): return safplus_getenv('ASP_UDP_LINK_NAME', default=None)
+
 def save_previous_logs(): return int(safplus_getenv('ASP_SAVE_PREV_LOGS', default='0'))
 
 def get_hpi_ip(): return safplus_getenv('SAHPI_UNSPECIFIED_DOMAIN_ID', default='undefined')
@@ -193,7 +197,7 @@ def get_dir(p):
                 
 def safplus_getenv(var, default=None):
     val = os.getenv(var) or default
-    if val is None:
+    if val is None and val != default:
         fail_and_exit('The %s environment variable is not set in the %s/asp.conf file, '
                       'or the %s/asp.conf file has not been sourced.' % (var, SAFPLUS_ETC_DIR, SAFPLUS_ETC_DIR ))
     return val
@@ -251,6 +255,10 @@ def gen_safplus_run_env_file(run_file):
     print >> f, 'ASP_MULTINODE=%s' % is_simulation()
     print >> f, 'ASP_SIMULATION=%s' % is_simulation()
     print >> f, 'BUILD_TIPC=%s' % is_tipc_build()
+    if get_safplus_udp_use_existing_ip() is not None:
+      print >> f, 'ASP_UDP_USE_EXISTING_IP=%s' % get_safplus_udp_use_existing_ip()
+    if get_safplus_udp_link_name() is not None:
+      print >> f, 'ASP_UDP_LINK_NAME=%s' % get_safplus_udp_link_name()
     f.close()
   
 def get_safplus_node_addr(): 
