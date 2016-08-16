@@ -131,6 +131,8 @@ void errorLogCallback(void *pArg, int iErrCode, const char *zMsg)
 
 static ClRcT cdbSQLiteDBInitialize(ClDBFileT dbEnvFile)
 {
+/* older versions of SQLite do not have this functionality */
+#ifdef SQLITE_CONFIG_LOG
     /* 
      * No need for configuration as of now.
      * Defining these functions to do any configuration in the future.
@@ -141,6 +143,9 @@ static ClRcT cdbSQLiteDBInitialize(ClDBFileT dbEnvFile)
         printf("Setting up the error logging callback failed. rc [%d]\n", rc);
         clLogNotice("DBA", "INI", "Setting up the error logging callback failed. rc [%d]", rc);        
     }
+#else
+    //#warn SQLite logging is not available.  SQLite version is too old.
+#endif
     return CL_OK;
 }
 

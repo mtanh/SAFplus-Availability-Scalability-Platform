@@ -83,6 +83,8 @@ else
 LDFLAGS += -m elf_i386
 endif				# LDFLAGS
 
+BUILDTOOLS_PATH:=       $(buildtools_dir)/local
+
 #
 # If it is not native build then get the toolchains from the
 # appropriate path.

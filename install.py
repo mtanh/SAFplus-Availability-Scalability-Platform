@@ -1105,7 +1105,7 @@ class ASPInstaller:
                 # For some reason these build commands had to be deferred (they may rely on previously build stuff, or preinstall)
                 if type(dep.build_cmds) == types.FunctionType:
                     dep.build_cmds = dep.build_cmds()
-                
+                worked = True
                 for cmd in dep.build_cmds:
                 
                     cmd = self.parse_unix_vars(cmd)               
@@ -1114,10 +1114,15 @@ class ASPInstaller:
                     self.debug('calling cmd: ' + cmd)
                     ret_code = cli_cmd(cmd)
                     if (ret_code != 0):
-                        self.feedback("[FATAL] Got bad retcode (%d) from command '%s'" % (ret_code, cmd), True)
+                        if dep.name == 'tipc-config':
+                            self.feedback("[WARNING] Got bad retcode (%d) from command '%s'  -- you will have to install this optional module yourself." % (ret_code, cmd))
+                            worked = False
+                            break
+                        else:
+                            self.feedback("[FATAL] Got bad retcode (%d) from command '%s'" % (ret_code, cmd), True)
                     self.debug('got ret code: ' + str(ret_code))
     
-                self.feedback('%s %s was installed successfully' % (dep.name, dep.version))
+                if worked: self.feedback('%s %s was installed successfully' % (dep.name, dep.version))
 
         # everything installed successfully, finishup
         self.debug('Install phase complete')

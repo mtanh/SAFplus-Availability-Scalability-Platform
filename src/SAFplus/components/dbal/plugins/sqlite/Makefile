@@ -43,7 +43,7 @@ DEP_COMP_LIST	:= utils osal timer buffer cnt debug dbal eo rmd ioc
 
 SRC_FILES_libClSQLiteDB      :=  clovisSQLite.c
 PURIFY_SHARED_LIB_NAMES := libClSQLiteDB
-                                        
+
 ifdef SOLARIS_BUILD
 EXTRA_SHARED_LDFLAGS=-L$(ASP_LIB) -lClTimer -lClBuffer -lClOsal -lClCnt \
                      -lClUtils -L/usr/local/lib -lsqlite3 -L$(MODEL_LIB)\
@@ -63,9 +63,9 @@ THIRD_PARTY_EZXML_PATH = $(CLOVIS_ROOT)/SAFplus/3rdparty/ezxml/stable
 THIRDPARTY_LIBS	:= -L$(THIRD_PARTY_EZXML_PATH) -lezxml
 
 CPPFLAGS += -I$(THIRD_PARTY_EZXML_PATH)
-CPPFLAGS += -I ../../common/
+CPPFLAGS += -I$(BUILDTOOLS_PATH)/include -I ../../common/
 
-SYS_LIBS := -ldl -L/usr/local/lib -lsqlite3
+SYS_LIBS := -ldl -L$(BUILDTOOLS_PATH)/lib -L/usr/local/lib -lsqlite3
 
 # If there are more than one client libraries to be built here, you
 # need to list the source files that will make up each library:
