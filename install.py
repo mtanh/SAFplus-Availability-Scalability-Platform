@@ -1,6 +1,7 @@
 #!/usr/bin/python
 import os, os.path, sys
 import re
+import glob
 import pdb
 import fnmatch
 import errno
@@ -1055,15 +1056,18 @@ class ASPInstaller:
                 self.feedback('***Build and install tipc module***')
                 KERNEL_VERSION = syscall('uname -r')
                 KERNEL_SOURCE_DIR = '/usr/src/kernels/%s' % KERNEL_VERSION
+		KERNEL_SOURCE_TEST='/usr/src/kernels/%s*' % KERNEL_VERSION[0:6]
+                #if self.NO_INTERACTION == True:
+                #    strin = KERNEL_SOURCE_DIR
+                #else:
+                #    strin = self.get_user_feedback('Enter the kernel source directory [default: %s]: ' % KERNEL_SOURCE_DIR)
 
-                if self.NO_INTERACTION == True:
-                    strin = KERNEL_SOURCE_DIR
-                else:
-                    strin = self.get_user_feedback('Enter the kernel source directory [default: %s]: ' % KERNEL_SOURCE_DIR)
-
-                if strin :
-                    KERNEL_SOURCE_DIR = self.expand_path(strin)                                    
-                os.chdir('%s' %KERNEL_SOURCE_DIR)         
+                #if strin :
+                 #   KERNEL_SOURCE_DIR = self.expand_path(strin)
+                                                    
+		if len(glob.glob(KERNEL_SOURCE_TEST)) > 0:
+                      syscall('mv %s %s' %(KERNEL_SOURCE_TEST,KERNEL_SOURCE_DIR))	                
+		os.chdir('%s' %KERNEL_SOURCE_DIR)         
                 tipcPkgName = dep.pkg_name                
                 tipcModName = tipcPkgName.replace('.tar.gz', '').replace('.tgz', '')                       
                 syscall('cp -rf %s/workspace/%s/net .'%(self.WORKING_DIR,tipcModName))
