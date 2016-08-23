@@ -31,7 +31,7 @@ except ImportError:
 # ------------------------------------------------------------------------------
 # Settings
 # ------------------------------------------------------------------------------
-THIRDPARTY_REVISION = ".2"
+THIRDPARTY_REVISION = ".3"
 if determine_bit() == 64:
     ArchName = '.x86_64'
 else: 
@@ -1063,6 +1063,9 @@ class ASPInstaller:
 
                 if strin :
                     KERNEL_SOURCE_DIR = self.expand_path(strin)                                    
+                if not os.path.exists(KERNEL_SOURCE_DIR):
+                    self.feedback('The path:%s does not existed. Please install TIPC module manual.' %KERNEL_SOURCE_DIR)
+		    continue
                 os.chdir('%s' %KERNEL_SOURCE_DIR)         
                 tipcPkgName = dep.pkg_name                
                 tipcModName = tipcPkgName.replace('.tar.gz', '').replace('.tgz', '')                       
