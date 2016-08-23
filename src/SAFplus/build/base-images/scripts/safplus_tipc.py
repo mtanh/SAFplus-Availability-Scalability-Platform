@@ -461,7 +461,10 @@ def load_tipc_module():
         cmd = 'insmod %s/modules/tipc.ko' % sandbox
         ret, output, signal, core = system(cmd)
         if ret:
-            safplus.fail_and_exit('Failed to load TIPC module: attempted: %s, output was: %s' % (cmd, ''.join(output)))
+            log.warning('Failed to load TIPC module: attempted: %s, output was: %s' % (cmd, ''.join(output)))
+            return False
+            #safplus.fail_and_exit('Failed to load TIPC module: attempted: %s, output was: %s' % (cmd, ''.join(output)))
+    return True
 
 def is_tipc_loaded():
     cmd = safplus.is_tipc_loaded_cmd()
@@ -571,8 +574,8 @@ def load_config_tipc_module():
         elif tipc_state == (0, 1, 1):
             pass
         elif tipc_state == (1, 0, 0):
-            load_tipc_module()
-            config_tipc_module()
+            if load_tipc_module():
+              config_tipc_module()
         elif tipc_state == (1, 1, 0):
             config_tipc_module()
         elif tipc_state == (1, 1, 1):
