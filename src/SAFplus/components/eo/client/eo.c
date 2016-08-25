@@ -1666,7 +1666,11 @@ static ClRcT clEoStart(ClEoExecutionObjT *pThis)
         goto eoAddedEntry;
     }
 
-    gClEoThreadCount = 2;
+    gClEoThreadCount = 1;
+    if(!clTransportBridgeEnabled(gIocLocalBladeAddress))
+    {
+        ++gClEoThreadCount;
+    }
 
     /*
      * No point in using heap here as we are early even though its up.

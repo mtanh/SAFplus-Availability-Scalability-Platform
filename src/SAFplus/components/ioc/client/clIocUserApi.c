@@ -623,7 +623,7 @@ static ClRcT iocCommPortCreate(ClUint32T portId, ClIocCommPortFlagsT portType,
         goto out_put;
     }
 
-    if(!bindFlag) // // Ioc communication port 0x17 - is the  port to listen whether node is bridge or not
+    if(!bindFlag && clTransportBridgeEnabled(gIocLocalBladeAddress))
     {
         rc = clTransportListen(xportType, portId);
     }
@@ -700,7 +700,7 @@ static ClRcT iocCommPortDelete(ClIocCommPortT *pIocCommPort, const ClCharT *xpor
     ClIocCompT *pComp = NULL;
 
     /*This would withdraw all the binds*/
-    if(!bindFlag) // Ioc communication port 0x17 - is the  port to listen whether node is bridge or not
+    if(!bindFlag && clTransportBridgeEnabled(gIocLocalBladeAddress))
     {
         clTransportListenStop(xportType, pIocCommPort->portId);
     }

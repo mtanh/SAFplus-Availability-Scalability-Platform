@@ -783,9 +783,16 @@ ClRcT xportInit(const ClCharT *xportType, ClInt32T xportId, ClBoolT nodeRep)
     gClBindOffset = gIocLocalBladeAddress;
     gClUdpUseExistingIp = clParseEnvBoolean("ASP_UDP_USE_EXISTING_IP");
 
+    char fname[256];
+    char* dir = getenv("ASP_RUNDIR");
+    if (!dir) dir = ".";
+    strncpy(fname,dir,255);
+    strncat(fname,"/",255);
+    strncat(fname,"udp.mode",255);
+
     if (nodeRep)  // Make sure that the udp mode is consistent across the cluster
     {
-        FILE* fp = fopen("udp.mode","w");
+        FILE* fp = fopen(fname,"w");
         if (fp)
         {
             if (gClUdpUseExistingIp) fputs("CLOUD",fp);
@@ -795,14 +802,6 @@ ClRcT xportInit(const ClCharT *xportType, ClInt32T xportId, ClBoolT nodeRep)
     }
     else
     {
-        char fname[256];
-        char* dir = getenv("ASP_RUNDIR");
-        if (!dir) dir = ".";
-        strncpy(fname,dir,255);
-        strncat(fname,"/",255);
-        strncat(fname,"udp.mode",255);
-        //snprinf(fname,255,"%s/udp.mode",dir)
-                 
         FILE* fp = fopen(fname,"r");
         if (fp)
         {

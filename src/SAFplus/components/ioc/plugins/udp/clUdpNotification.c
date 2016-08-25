@@ -1238,7 +1238,7 @@ ClRcT clUdpEventHandlerInitialize(void)
 
     udpDiscoverPeers(); /* shouldn't return till cluster sync interval */
 
-    if (clCpmIsSC())
+    if (clCpmIsSC() && !gClMcastSupport)
       /* Multiple send discovery packets */
       rc = _gmsClusterTrackInit();
 
