@@ -224,7 +224,7 @@ static ClRcT xportAddressAssignFake(void)
 static ClRcT xportInitFake(const ClCharT *xportType, ClInt32T xportId, ClBoolT nodeRep)
 { 
     clLogNotice("XPORT", "INIT", "Inside fake transport initialize");
-    return CL_OK; 
+    return CL_ERR_NOT_SUPPORTED;
 }
 
 static ClRcT xportFinalizeFake(ClInt32T xportId, ClBoolT nodeRep)
@@ -687,6 +687,19 @@ static void addTransport(const ClCharT *type, const ClCharT *plugin)
     if(!xport->xportMulticastDeregister) xport->xportMulticastDeregister = xportMulticastDeregisterFake;
     if(!xport->xportFdGet) xport->xportFdGet = xportFdGetFake;
     xport->xportId = clTransportIdGet();
+
+    /* Checking xport if it is actually available or not */
+    ClRcT rc = xport->xportInit(type, xport->xportId, gIsNodeRepresentative);
+    if(rc != CL_OK)
+    {
+        clLogError("XPORT", "INIT", "Transport [%s] initialize failed with [%#x]", type, rc);
+        goto out_free;
+    }
+    else
+    {
+        xport->xportState |= XPORT_STATE_INITIALIZED;
+    }
+
     clListAddTail(&xport->xportList, &gClTransportList);
     clLogNotice("XPORT", "LOAD", "Loaded transport [%s] with plugin [%s]", type, plugin);
 
@@ -2274,7 +2287,7 @@ ClRcT clTransportNotificationInitialize(const ClCharT *type)
         }
         return rc;
     }
-    rc = CL_OK;
+    rc = CL_ERR_NOT_SUPPORTED;
     /*
      * Protocols available in this blade can be specified randomize, this lead to mismatch on destination.
      * Example:
@@ -2297,6 +2310,11 @@ ClRcT clTransportNotificationInitialize(const ClCharT *type)
         clLogError("XPORT", "NOTIFY", "Transport [%s] notify initialize failed with [%#x]", gClXportDefault->xportType, rc);
       }
     }
+
+    /* Default protocol handle notification if it supports */
+    if (rc == CL_OK)
+      return rc;
+
     /*
      * Handle notification for remain protocols available
      */

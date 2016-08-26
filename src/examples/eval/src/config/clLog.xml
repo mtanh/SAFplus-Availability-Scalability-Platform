@@ -15,8 +15,8 @@
             <fileLocation>.:var/log</fileLocation>
             <fileUnitSize>1500000</fileUnitSize>
             <recordSize>300</recordSize>
-            <fileFullAction>WRAP</fileFullAction>
-            <maximumFilesRotated>0</maximumFilesRotated>
+            <fileFullAction>ROTATE</fileFullAction>
+            <maximumFilesRotated>3</maximumFilesRotated>
             <flushFreq>64</flushFreq>
             <flushInterval>100000</flushInterval>
             <syslog>no</syslog>
@@ -26,8 +26,8 @@
             <fileLocation>.:var/log</fileLocation>
             <fileUnitSize>1500000</fileUnitSize>
             <recordSize>300</recordSize>
-            <fileFullAction>WRAP</fileFullAction>
-            <maximumFilesRotated>0</maximumFilesRotated>
+            <fileFullAction>ROTATE</fileFullAction>
+            <maximumFilesRotated>3</maximumFilesRotated>
             <flushFreq>64</flushFreq>
             <flushInterval>100000</flushInterval>
             <syslog>no</syslog>

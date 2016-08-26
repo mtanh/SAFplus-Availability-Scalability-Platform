@@ -7,13 +7,22 @@
           <type>TIPC</type>
           <plugin>libClTIPC.so</plugin>
         </xport>
+        <xport>
+          <type>UDP</type>
+          <plugin>libClUDP.so</plugin>
+        </xport>
       </xports>
       <protocol default="TIPC">
-        <node name="SCNodeI0" protocol="TIPC"/>
-        <node name="SCNodeI1" protocol="TIPC"/>
-        <node name="PayloadNodeI0" protocol="TIPC"/>
-        <node name="PayloadNodeI1" protocol="TIPC"/>
+        <node name="SCNodeI0" protocol="TIPC UDP"/>
+        <node name="SCNodeI1" protocol="TIPC UDP"/>
+        <node name="PayloadNodeI0" protocol="TIPC UDP"/>
+        <node name="PayloadNodeI1" protocol="TIPC UDP"/>
       </protocol>
+      <heartbeat>
+          <interval>1000</interval>
+          <intervalLocal>1000</intervalLocal>
+          <retries>3</retries>
+      </heartbeat>
     </multixport:multixport>
   </version>
 </openClovisAsp>
