@@ -307,7 +307,7 @@ void clEvtEventDeliverCallback_t(ClEventSubscriptionIdT subscriptionId,
     }
     clHeapFree(patternArray.pPatterns); /* User is expected to free this memory 
                                          * if he doesn't allocate it */
-
+    rc+=1; /* just use it to avoid warning */
     return;
 }
 
@@ -622,18 +622,14 @@ static ClRcT cliEvtCkptSubsInfoReadWalk(ClCntKeyHandleT userKey,
                                         ClCntArgHandleT userArg,
                                         ClUint32T dataLength)
 {
-    ClRcT rc = CL_OK;
-
-    ClEvtCkptSubsInfoWithLenT *pSubsInfoWithLen =
-        (ClEvtCkptSubsInfoWithLenT *) userArg;
+    ClEvtCkptSubsInfoWithLenT *pSubsInfoWithLen = (ClEvtCkptSubsInfoWithLenT *) userArg;
 
 
     CL_FUNC_ENTER();
 
-    clEvtUtilsNameCpy(&pSubsInfoWithLen->chanName,
-                      &((ClEvtChannelKeyT *) userKey)->channelName);
+    clEvtUtilsNameCpy(&pSubsInfoWithLen->chanName, &((ClEvtChannelKeyT *) userKey)->channelName);
 
-    rc = clEvtCkptSubsInfoRead(pSubsInfoWithLen);
+    IGNORE_RETURN(clEvtCkptSubsInfoRead(pSubsInfoWithLen));
     if (0 != pSubsInfoWithLen->subsInfoLen)
     {
         cliEvtCkptSubsInfoShow(pSubsInfoWithLen);
@@ -673,15 +669,13 @@ static ClRcT cliEvtCkptSubsInfoRead(ClUint32T channelScope)
 
 static ClRcT cliEvtCkptShowAll()
 {
-    ClRcT rc = CL_OK;
+    IGNORE_RETURN(cliEvtCkptUserInfoRead());
 
-    rc = cliEvtCkptUserInfoRead();
+    IGNORE_RETURN(cliEvtCkptECHInfoRead(CL_EVENT_LOCAL_CHANNEL));
+    IGNORE_RETURN(cliEvtCkptECHInfoRead(CL_EVENT_GLOBAL_CHANNEL));
 
-    rc = cliEvtCkptECHInfoRead(CL_EVENT_LOCAL_CHANNEL);
-    rc = cliEvtCkptECHInfoRead(CL_EVENT_GLOBAL_CHANNEL);
-
-    rc = cliEvtCkptSubsInfoRead(CL_EVENT_LOCAL_CHANNEL);
-    rc = cliEvtCkptSubsInfoRead(CL_EVENT_GLOBAL_CHANNEL);
+    IGNORE_RETURN(cliEvtCkptSubsInfoRead(CL_EVENT_LOCAL_CHANNEL));
+    IGNORE_RETURN(cliEvtCkptSubsInfoRead(CL_EVENT_GLOBAL_CHANNEL));
 
     return CL_OK;
 }

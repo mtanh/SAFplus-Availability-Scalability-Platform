@@ -952,7 +952,6 @@ ClRcT halShowDevTable(char buff[] , ClUint32T bufflen)
     ClUint32T nIndex=0;
     ClInt32T buffLeft = (ClInt32T)bufflen;
     char temp[128];
-    ClRcT retCode = 0;
     ClfpDevOperationT* pTemp=NULL;
 
     memset(buff,0,bufflen);
@@ -962,7 +961,7 @@ ClRcT halShowDevTable(char buff[] , ClUint32T bufflen)
 
     if ((NULL == halDevObjTable.pphalDeviceObj))
     { 
-        retCode = buffPrint("\n No Device Object installed\n",&buffLeft,buff) ;
+        IGNORE_RETURN(buffPrint("\n No Device Object installed\n",&buffLeft,buff));
         CL_FUNC_EXIT();
         return (CL_OK) ;
     }
@@ -972,35 +971,35 @@ ClRcT halShowDevTable(char buff[] , ClUint32T bufflen)
        if ( NULL != halDevObjTable.pphalDeviceObj[index])
        {
          snprintf(temp,sizeof(temp),"\ndeviceHandle=%d \n",(ClInt32T)index);
-         retCode = buffPrint(temp,&buffLeft,buff);
+         IGNORE_RETURN(buffPrint(temp,&buffLeft,buff));
 
          snprintf(temp,sizeof(temp), "deviceId=%d \n",(ClInt32T)halDevObjTable.
          pphalDeviceObj[index]->deviceId);
-         retCode = buffPrint(temp, &buffLeft,buff);
+         IGNORE_RETURN(buffPrint(temp, &buffLeft,buff));
             
          snprintf(temp,sizeof(temp), "refCount=%d \n",(ClInt32T)halDevObjTable.
          pphalDeviceObj[index]->refCount);
-         retCode = buffPrint(temp,&buffLeft,buff);
+         IGNORE_RETURN(buffPrint(temp,&buffLeft,buff));
 
          snprintf(temp, sizeof(temp),"pDevCapability=%p \n",
          (halDevObjTable.pphalDeviceObj[index]->pdevCapability));
-         retCode = buffPrint(temp,&buffLeft,buff);
+         IGNORE_RETURN(buffPrint(temp,&buffLeft,buff));
 
          snprintf(temp,sizeof(temp),"devCapLen=%d \n",(ClInt32T)halDevObjTable.
          pphalDeviceObj[index]->devCapLen);
-         retCode = buffPrint(temp,&buffLeft,buff);
+         IGNORE_RETURN(buffPrint(temp,&buffLeft,buff));
 
          snprintf(temp,sizeof(temp), "state=%d \n",(ClInt32T)halDevObjTable.
          pphalDeviceObj[index]->state);
-         retCode = buffPrint(temp,&buffLeft,buff);
+         IGNORE_RETURN(buffPrint(temp,&buffLeft,buff));
 
          snprintf(temp,sizeof(temp), "maxRspTime=%d \n",(ClInt32T)halDevObjTable.
          pphalDeviceObj[index]->maxRspTime);
-         retCode = buffPrint(temp,&buffLeft,buff);
+         IGNORE_RETURN(buffPrint(temp,&buffLeft,buff));
 
          snprintf(temp,sizeof(temp),"bootUpPriority=%d \n",(ClInt32T)halDevObjTable.
          pphalDeviceObj[index]->bootUpPriority);
-         retCode = buffPrint(temp,&buffLeft,buff);
+         IGNORE_RETURN(buffPrint(temp,&buffLeft,buff));
 
          if(NULL==halDevObjTable.pphalDeviceObj[index]->pdevOperations)
          {
@@ -1012,7 +1011,7 @@ ClRcT halShowDevTable(char buff[] , ClUint32T bufflen)
             {
                pTemp =(ClfpDevOperationT*)((ClWordT)(halDevObjTable.pphalDeviceObj[index]->pdevOperations[nIndex]));
                snprintf(temp,sizeof(temp),"DevOperation[%d]=%p\n",nIndex,(void *)pTemp);
-               retCode = buffPrint(temp,&buffLeft,buff);
+               IGNORE_RETURN(buffPrint(temp,&buffLeft,buff));
             }
          }
        }/*endif */

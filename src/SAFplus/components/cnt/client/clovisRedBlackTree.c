@@ -765,9 +765,7 @@ cclRBTreeRightNodeDelete(CclRBTreeHead_t* pRBTreeHead,
           pRightChild = pRightChild->pParent;
 
           tempContainerHandle = pRightChild->pRight->containerHandle;
-          cclRBTreeBaseCntDestroy(pRBTreeHead,
-                  pRightChild->pRight->containerHandle);
-
+          cclRBTreeBaseCntDestroy(pRBTreeHead, tempContainerHandle);
           if(pRightChild->pRight != pRBTreeHead->pSentinel)
           {
               clHeapFree(pRightChild->pRight);

@@ -83,7 +83,6 @@ clHsmInstanceOnEvent(ClSmInstancePtrT smThis,
     ClSmStatePtrT curr;
     ClSmTransitionPtrT tO=0;
     ClRcT ret = CL_OK;
-    ClRcT retCode = CL_OK;
     
     CL_FUNC_ENTER();
     
@@ -123,7 +122,7 @@ clHsmInstanceOnEvent(ClSmInstancePtrT smThis,
                               msg->eventId,
                               curr->type);
 #endif
-        retCode = _transition(smThis, tO, smThis->current, tO->nextState, msg);
+        IGNORE_RETURN(_transition(smThis, tO, smThis->current, tO->nextState, msg));
       } 
     else
       {

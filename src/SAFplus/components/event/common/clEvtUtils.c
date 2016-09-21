@@ -194,6 +194,7 @@ ClRcT clEvtUtilsFilter2Rbe(const ClEventFilterArrayT *pFilterArray, ClRuleExprT 
 
     *pRbeExpr = rbeExprArray[0];
     clHeapFree(rbeExprArray);
+    rc++; /* stop compiler from warning about not checking return value */
     CL_FUNC_EXIT();
     return CL_OK;
 }
@@ -385,7 +386,7 @@ ClRcT clEvtUtilsFlatPattern2Rbe(void *pData, ClUint32T noOfPattern,
 
     *pRbeExpr = rbeExprArray[0];
     clHeapFree(rbeExprArray);
-
+    rc++;  /* avoid rc unused warning */
     CL_FUNC_EXIT();
     return CL_OK;
 }

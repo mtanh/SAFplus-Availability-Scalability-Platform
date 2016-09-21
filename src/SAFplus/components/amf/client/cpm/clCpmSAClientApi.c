@@ -612,7 +612,7 @@ ClRcT cpmPostCallback(ClCpmCallbackTypeT cbType,
         goto failure;
     }
     if(cbType != CL_CPM_FINALIZE)
-        /* count = */ write(cpmInstance->writeFd, (void *) &chr, 1);
+        /* count = */ (void) (write(cpmInstance->writeFd, (void *) &chr, 1)+1);  /* ignore this return value */
     clOsalMutexUnlock(cpmInstance->cbMutex);
     
     return rc;
@@ -1736,7 +1736,7 @@ static ClRcT VDECL(_clCpmClientCompCSISet)(ClEoDataT eoArg,
     ClUint32T msgLength = 0;
     ClHandleT cpmHandle;
     ClCpmInstanceT *cpmInstance = NULL;
-    ClUint32T cbType = 0;
+    //ClUint32T cbType = 0;
     SaNameT appName = {0};
 
     rc = clBufferLengthGet(inMsgHandle, &msgLength);
@@ -1759,7 +1759,7 @@ static ClRcT VDECL(_clCpmClientCompCSISet)(ClEoDataT eoArg,
     rc = VDECL_VER(clXdrUnmarshallClCpmCompCSISetT, 4, 0, 0)(inMsgHandle, (void *)recvBuff);
     CPM_CLIENT_CHECK(CL_LOG_SEV_ERROR, ("Unable to read the message \n"), rc);
 
-    CL_CPM_INVOCATION_CB_TYPE_GET(recvBuff->invocation, cbType);
+    //CL_CPM_INVOCATION_CB_TYPE_GET(recvBuff->invocation, cbType);
 
     /*  PROXIED Support: 
      *  Request may be for Proxy-Proxied case in which case compName will be
@@ -2379,7 +2379,7 @@ ClRcT clCpmClientFinalize(ClCpmHandleT cpmHandle)
     ClEoExecutionObjT *pEoObj = NULL;
     ClCpmInstanceT *cpmInstance = NULL;
     ClCharT chr = 'f';
-    ClUint32T   count = 0;
+
     /*
      * Checkout the client handle 
      */
@@ -2428,7 +2428,7 @@ ClRcT clCpmClientFinalize(ClCpmHandleT cpmHandle)
     if(cpmInstance->writeFd != 0)
     {
         rc = cpmPostCallback(CL_CPM_FINALIZE, NULL, cpmInstance);
-        count = write(cpmInstance->writeFd, (void *) &chr, 1);
+        IGNORE_RETURN(write(cpmInstance->writeFd, (void *) &chr, 1));
     }
     /*if(cpmInstance->dispatchType == CL_DISPATCH_ONE || 
         cpmInstance->dispatchType == CL_DISPATCH_ALL) 
@@ -2568,7 +2568,6 @@ ClRcT clCpmSelectionObjectGet(ClCpmHandleT cpmHandle,
 void cpmInvokeCallback(ClCpmCallbackTypeT cbType, void *param, ClCpmInstanceT * cpmInstance)
 {
     ClRcT rc = CL_OK;
-    ClUint32T cbType1;
 
     switch (cbType)
     {
@@ -2588,7 +2587,6 @@ void cpmInvokeCallback(ClCpmCallbackTypeT cbType, void *param, ClCpmInstanceT * 
         {
             ClCpmCompCSISetT *recvBuff = (ClCpmCompCSISetT *)param;
 
-            CL_CPM_INVOCATION_CB_TYPE_GET(recvBuff->invocation, cbType1);
             rc = handleCompCSIAssign(recvBuff, cpmInstance);
             /* No need to free the recvBuff, as it is cleanup in the handleCompCSIAssign */
             break;
@@ -2597,8 +2595,6 @@ void cpmInvokeCallback(ClCpmCallbackTypeT cbType, void *param, ClCpmInstanceT * 
         {
             ClCpmCompCSIRmvT    *recvBuff = (ClCpmCompCSIRmvT *)param;
             
-            CL_CPM_INVOCATION_CB_TYPE_GET(recvBuff->invocation, cbType1);
-
             rc = handleCompCSIRmv(recvBuff, cpmInstance);
             break;
         }
@@ -2625,6 +2621,8 @@ void cpmInvokeCallback(ClCpmCallbackTypeT cbType, void *param, ClCpmInstanceT * 
             break;
         }
     }
+    rc++; /* stop compiler warning */
+    
     return;
 }
 
@@ -2658,7 +2656,7 @@ static ClCpmCallbackQueueDataT * getRequest(ClCpmInstanceT *cpmInstance, ClBoolT
         FD_SET(fd, &fds);
         if (select(fd+1, &fds, 0, 0,&timeout)>=0) /* there is data available */
         {
-            if (FD_ISSET(fd,&fds)) read(fd, (void *) &chr1, 1);
+            if (FD_ISSET(fd,&fds)) ((void) (read(fd, (void *) &chr1, 1)+1));  /* ignore this return value */
         }
         
     }

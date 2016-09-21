@@ -141,7 +141,6 @@ ClRcT clRmdCreateAndAddRmdSendRecord(ClEoExecutionObjT *pThis,
     ClRmdRecordSendT *rec;
 
     ClRcT retVal = CL_OK;
-    ClRcT retCode = 0;
 
     /*
      * it will be called only for async
@@ -197,7 +196,7 @@ ClRcT clRmdCreateAndAddRmdSendRecord(ClEoExecutionObjT *pThis,
          * Free the timer additionally for Async Call
          */
         if (flags & CL_RMD_CALL_ASYNC)
-            retCode = clTimerDeleteAsync(&rec->recType.asyncRec.timerID);
+            IGNORE_RETURN(clTimerDeleteAsync(&rec->recType.asyncRec.timerID));
 
         clHeapFree(rec);
     }
@@ -240,7 +239,7 @@ static ClRcT rmdSendTimerFunc(void *pData)
     ClCntNodeHandleT    nodeHandle;
     ClRmdRecordSendT    *rec         = NULL;
     ClRcT               rc;
-    ClRcT               retCode      = 0;
+    ClRcT               retCode;
     ClRmdObjT           *pRmdObject;
     ClRmdAsyncCallbackT fpTempPtr;
     void                *cookie;
@@ -302,7 +301,7 @@ static ClRcT rmdSendTimerFunc(void *pData)
                      */
                     RMD_STAT_INC(pRmdObject->rmdStats.nCallTimeouts);
                     retCode = clTimerDeleteAsync(&rec->recType.asyncRec.timerID);
-                    if (rec->recType.asyncRec.func)
+                    if ((retCode==CL_OK)&&(rec->recType.asyncRec.func))
                     {
                         /*
                          * unlocking it as callback func can make the rmd call

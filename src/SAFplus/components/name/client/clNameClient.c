@@ -931,7 +931,7 @@ ClRcT clNameToObjectMappingGet(SaNameT* pName,
                                                                                                                              
 ClRcT clNameObjectMappingCleanup(ClNameSvcEntryPtrT pObjMapping)
 {
-    ClUint32T           refCount = 0;
+    //ClUint32T           refCount = 0;
     ClRcT               rc       = CL_OK;
     ClNameSvcCompListT *pTemp    = NULL;
     ClNameSvcCompListT *pTemp1   = NULL;
@@ -960,7 +960,7 @@ ClRcT clNameObjectMappingCleanup(ClNameSvcEntryPtrT pObjMapping)
         return rc;
     }
 
-    refCount  = pObjMapping->refCount;
+    //refCount  = pObjMapping->refCount;
     pTemp1    = &pObjMapping->compId;
 
     while(pObjMapping->refCount >= 1)

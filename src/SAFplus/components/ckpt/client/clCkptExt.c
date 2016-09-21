@@ -1041,7 +1041,6 @@ ClRcT clCkptLibraryCkptDataSetVersionWrite (ClCkptSvcHdlT   ckptHdl,
      CkptClnCbT           *pCkptClnt =  NULL;      /*checkpoint handle*/
      CkptDataSetT         *pDataInfo =  NULL;      /*data set */
      ClRcT                 rc        =  CL_OK;     /*return code*/
-     ClDBNameT             ckptDbName   =  NULL;      /*dataBase name*/   
      CkptElemKeyT          dbKey = {0};
      ClCharT ckptListKey[CL_MAX_NAME_LENGTH] = {0};
      ClCharT *pCkptListKey = ckptListKey;
@@ -1090,7 +1089,6 @@ ClRcT clCkptLibraryCkptDataSetVersionWrite (ClCkptSvcHdlT   ckptHdl,
                                 pDataInfo->numDataSetTableEntries);
     CKPT_ERR_CHECK(CL_CKPT_LIB,CL_LOG_SEV_ERROR, 
             ("Ckpt: Error during version serialization rc[0x %x]\n",rc), rc);
-    ckptDbName = (ClCharT *)pCkptName->value;
     /*Creating  key*/
     dbKey.dsId = pDataInfo->dsId;
     dbKey.keyLen  = 0;

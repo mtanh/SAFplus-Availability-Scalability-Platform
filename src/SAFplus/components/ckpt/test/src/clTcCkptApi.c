@@ -782,7 +782,6 @@ clTestSectionOverwrite(ClCkptHdlT  ckptHdl,
                       ClUint32T   sectionSize,
                       ClTimeT     *pTime)
 {
-    ClRcT             rc = CL_OK;
     ClUint32T         i  = 0;
     ClUint8T          data[sectionSize];
     ClCkptSectionIdT  secId[numSections];
@@ -813,7 +812,7 @@ clTestSectionOverwrite(ClCkptHdlT  ckptHdl,
         oldTime = clOsalStopWatchTimeGet();
         for( i = 0; i < numWrites; i++ )
         {
-            rc = clCkptSectionOverwrite(ckptHdl, &defaultSecId, data, sectionSize);
+            IGNORE_RETURN(clCkptSectionOverwrite(ckptHdl, &defaultSecId, data, sectionSize));
         }
         newTime = clOsalStopWatchTimeGet();
     }
@@ -822,7 +821,7 @@ clTestSectionOverwrite(ClCkptHdlT  ckptHdl,
         oldTime = clOsalStopWatchTimeGet();
         for( i = 0; i < numWrites; i++ )
         {
-            rc = clCkptSectionOverwrite(ckptHdl, &secId[i], data, sectionSize);
+            IGNORE_RETURN(clCkptSectionOverwrite(ckptHdl, &secId[i], data, sectionSize));
         }
         newTime = clOsalStopWatchTimeGet();
     }
@@ -875,7 +874,6 @@ clTestCkptRead(ClCkptHdlT  ckptHdl,
                ClTimeT *pTime)
       
 {
-    ClRcT           rc = CL_OK;
     ClUint32T       i = 0;
     ClCkptIOVectorElementT  iov[numSections];
     ClUint32T               readIdx = 0;
@@ -910,14 +908,14 @@ clTestCkptRead(ClCkptHdlT  ckptHdl,
         oldTime = clOsalStopWatchTimeGet();
         for( i = 0; i < 100; i++ )
         {
-            rc = clCkptCheckpointRead(ckptHdl, &iov[0], numSections, &readIdx); 
+            IGNORE_RETURN(clCkptCheckpointRead(ckptHdl, &iov[0], numSections, &readIdx)); 
         }
         newTime = clOsalStopWatchTimeGet();
     }
     else
     {
         oldTime = clOsalStopWatchTimeGet();
-        rc = clCkptCheckpointRead(ckptHdl, iov, numSections, &readIdx); 
+        IGNORE_RETURN(clCkptCheckpointRead(ckptHdl, iov, numSections, &readIdx)); 
         newTime = clOsalStopWatchTimeGet();
     }
 
@@ -938,7 +936,6 @@ ClRcT
 clTestCkptRead_withTime(ClCkptHdlT  ckptHdl,
                ClUint32T   numSections)
 {
-    ClRcT           rc = CL_OK;
     ClUint32T       i = 0, j = 0;
     ClCkptIOVectorElementT  iov[numSections];
     ClUint32T               readIdx = 0;
@@ -966,7 +963,7 @@ clTestCkptRead_withTime(ClCkptHdlT  ckptHdl,
     {
         for( j = 0; j < 1000; j++ )
         {
-            rc = clCkptCheckpointRead(ckptHdl, iov, numSections, &readIdx); 
+            IGNORE_RETURN(clCkptCheckpointRead(ckptHdl, iov, numSections, &readIdx));
             for( i = 0; i < numSections; i++ )
             {
                 clHeapFree(iov[i].dataBuffer);

@@ -1231,7 +1231,6 @@ clNameEntryTblPrint(ClCntKeyHandleT   key,
 {
     ClBufferHandleT   msg    = (ClBufferHandleT)arg;
     ClNameSvcBindingT *pData = (ClNameSvcBindingT *)data;
-    ClRcT              rc    = CL_OK;
      
     clDebugPrint(msg, "Name      : %s\n", pData->name.value); 
     clDebugPrint(msg, "RefCount  : %d\n", pData->refCount); 
@@ -1239,8 +1238,7 @@ clNameEntryTblPrint(ClCntKeyHandleT   key,
     clDebugPrint(msg, "priority  : %d\n", pData->priority);
     clDebugPrint(msg, "-----------------------------------------\n");
     clDebugPrint(msg, "Binding Details:\n");
-    rc = clCntWalk(pData->hashId, clNameSvcBDTblWalk, 
-                   (ClCntArgHandleT)msg, sizeof(msg));
+    IGNORE_RETURN(clCntWalk(pData->hashId, clNameSvcBDTblWalk, (ClCntArgHandleT)msg, sizeof(msg)));
     return CL_OK;
 }
 
@@ -1252,7 +1250,6 @@ clNameNSTablePrint(ClCntKeyHandleT   key,
 {
     ClBufferHandleT  msg = (ClBufferHandleT)arg;
     ClNameSvcContextInfoT *pCtxData = (ClNameSvcContextInfoT *)data;
-    ClRcT                  rc       = CL_OK;
 
     clDebugPrint(msg, "ContextId: %p \n", key);
     clDebugPrint(msg, "ContextData:\n");
@@ -1261,8 +1258,7 @@ clNameNSTablePrint(ClCntKeyHandleT   key,
     clDebugPrint(msg, "cookie    : %d \n", pCtxData->contextMapCookie);
     clDebugPrint(msg, "-----------------------------------------------\n");
     clDebugPrint(msg, "Svc Entry:"); 
-    rc = clCntWalk(pCtxData->hashId, clNameEntryTblPrint, 
-                   (ClCntArgHandleT)msg, sizeof(msg));
+    IGNORE_RETURN(clCntWalk(pCtxData->hashId, clNameEntryTblPrint, (ClCntArgHandleT)msg, sizeof(msg)));
     return CL_OK;
     
 }   
@@ -1270,11 +1266,8 @@ clNameNSTablePrint(ClCntKeyHandleT   key,
 ClRcT
 clNameSvcNSTableDump(ClBufferHandleT msg)
 {
-    ClRcT  rc = CL_OK;
-
     clDebugPrint(msg, "NSTABLE:\n");
-    rc = clCntWalk(gNSHashTable, clNameNSTablePrint, 
-                   (ClCntArgHandleT)msg, sizeof(msg));
+    IGNORE_RETURN(clCntWalk(gNSHashTable, clNameNSTablePrint, (ClCntArgHandleT)msg, sizeof(msg)));
     return CL_OK;
 }    
                                         
@@ -1282,7 +1275,6 @@ ClRcT cliNSDataDump(ClUint32T argc,
                     ClCharT **argv,
                     ClCharT** retStr)
 {
-    ClRcT  rc = CL_OK;
     ClBufferHandleT msg = 0;
 
     if( argc != 1 )
@@ -1291,7 +1283,7 @@ ClRcT cliNSDataDump(ClUint32T argc,
         return CL_OK;
     }    
     clDebugPrintInitialize(&msg);
-    rc = clNameSvcNSTableDump(msg);
+    IGNORE_RETURN(clNameSvcNSTableDump(msg));
 
     clDebugPrintFinalize(&msg, retStr);
     return CL_OK;

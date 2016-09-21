@@ -345,7 +345,6 @@ out:
 
 static void safTerminate(SaInvocationT invocation, const SaNameT *compName)
 {
-    SaAisErrorT rc = SA_AIS_OK;
     if(gClMsgInit)
     {
         ClBoolT lockStatus = CL_TRUE;
@@ -361,7 +360,7 @@ static void safTerminate(SaInvocationT invocation, const SaNameT *compName)
             clOsalMutexUnlock(&gClMsgFinalizeLock);
         }
     }
-    rc = saAmfComponentUnregister(amfHandle, compName, NULL);
+    IGNORE_RETURN(saAmfComponentUnregister(amfHandle, compName, NULL));
     clCpmClientFinalize(amfHandle);
     //clCpmResponse(cpmHandle, invocation, CL_OK);
     saAmfResponse(amfHandle, invocation, SA_AIS_OK);
@@ -571,7 +570,7 @@ void dispatchLoop(void)
           if (EINTR == err) continue;
 
           errorStr[0] = 0; /* just in case strerror does not fill it in */
-          strerror_r(err, errorStr, 79);
+          IGNORE_RETURN(strerror_r(err, errorStr, 79));
           break;
        }
        if (FD_ISSET(amf_dispatch_fd,&read_fds)) saAmfDispatch(amfHandle, SA_DISPATCH_ALL);

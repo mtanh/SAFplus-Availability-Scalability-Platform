@@ -633,7 +633,6 @@ clPoolCreate(
 {
     ClRcT rc = CL_OK;
     ClPoolHeaderT* pPoolHeader = NULL;
-    ClUint32T chunkSize = 0;
     ClUint32T incrementPoolSize = 0;
     ClUint32T extendedPools = 0;
     ClUint32T i = 0;
@@ -651,14 +650,13 @@ clPoolCreate(
         goto out;
     }
 
-    chunkSize = pPoolConfig->chunkSize;
     incrementPoolSize = pPoolConfig->incrementPoolSize;
     extendedPools = pPoolConfig->initialPoolSize/incrementPoolSize;
 
     rc = CL_POOL_RC (CL_ERR_NO_MEMORY);
     if ((pPoolHeader = (ClPoolHeaderT*)CL_POOL_ALLOC_EXTERNAL(flags, sizeof (*pPoolHeader))) == NULL)
     {
-        CL_POOL_LOG(CL_LOG_SEV_ERROR,"Error in allocating memory for pool header, chunk size:%d\n",chunkSize);
+        CL_POOL_LOG(CL_LOG_SEV_ERROR,"Error in allocating memory for pool header, chunk size:%d\n",pPoolConfig->chunkSize);
         goto out;
     }
     memset (pPoolHeader, 0, sizeof (*pPoolHeader));
@@ -692,7 +690,7 @@ clPoolCreate(
                     (ClExtendedPoolHeaderT*)CL_POOL_ALLOC_EXTERNAL (flags,
                         sizeof (*pExtendedPoolHeader))) == NULL)
         {
-            CL_POOL_LOG(CL_LOG_SEV_ERROR,"Error allocating memory for extended pool header, chunk size:%d extended pool number:%d\n", chunkSize, i);
+            CL_POOL_LOG(CL_LOG_SEV_ERROR,"Error allocating memory for extended pool header, chunk size:%d extended pool number:%d\n", pPoolConfig->chunkSize, i);
             goto out_free;
         }
         memset (pExtendedPoolHeader, 0, sizeof (*pExtendedPoolHeader));
@@ -701,7 +699,7 @@ clPoolCreate(
         if(rc != CL_OK)
         {
             CL_POOL_FREE_EXTERNAL (flags, pExtendedPoolHeader, sizeof (*pExtendedPoolHeader));
-            CL_POOL_LOG(CL_LOG_SEV_ERROR,"Error allocating extended pool, chunk size:%d extended pool number:%d\n", chunkSize, i);
+            CL_POOL_LOG(CL_LOG_SEV_ERROR,"Error allocating extended pool, chunk size:%d extended pool number:%d\n", pPoolConfig->chunkSize, i);
             goto out_free;
         }
         CL_POOL_STATS_UPDATE_EXTENDED_POOLS_INCR(pPoolHeader);

@@ -3115,10 +3115,11 @@ ClRcT clEvtCkptSubsInfoReconstructWalk(ClCntKeyHandleT userKey,
     if (0 != pSubsInfoWithLen->subsInfoLen)
     {
         rc = clEvtCkptSubsUnsubsSimulator(pSubsInfoWithLen);
+        
     }
 
     CL_FUNC_EXIT();
-    return CL_OK;
+    return rc;
 }
 
 

@@ -233,8 +233,6 @@ SaAisErrorT initializeAmf(void)
 
 void ckptTerminate(SaInvocationT invocation, const SaNameT *compName)
 {
-    SaAisErrorT rc = SA_AIS_OK;
-    
     clLogWarning(CL_LOG_AREA_UNSPECIFIED, CL_LOG_CONTEXT_UNSPECIFIED,"Checkpoint service is stopping.");
     /*
      * Deregister with debug server.
@@ -248,7 +246,7 @@ void ckptTerminate(SaInvocationT invocation, const SaNameT *compName)
     /*
      * Deregister with cpm.
     */
-    rc = saAmfComponentUnregister(amfHandle, compName, NULL);
+    IGNORE_RETURN(saAmfComponentUnregister(amfHandle, compName, NULL));
     /*
      * Cleanup the persistent DB information.
      */
@@ -298,7 +296,7 @@ void dispatchLoop(void)
           if (EINTR == err) continue;
 
           errorStr[0] = 0; /* just in case strerror does not fill it in */
-          strerror_r(err, errorStr, 79);
+          IGNORE_RETURN(strerror_r(err, errorStr, 79));
           //clprintf (CL_LOG_SEV_ERROR, "Error [%d] during dispatch loop select() call: [%s]",err,errorStr);
           break;
        }

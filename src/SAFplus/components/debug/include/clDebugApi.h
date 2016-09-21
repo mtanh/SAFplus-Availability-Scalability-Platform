@@ -159,14 +159,14 @@ enum
         char __str[256];                                                \
         if(x <= CL_DEBUG_LEVEL_THRESHOLD)                               \
         {                                                               \
-            snprintf(__str,256,CL_DEBUG_SP y);                          \
+            /* snprintf(__str,256,CL_DEBUG_SP y); */                    \
             clLogConsole((ClLogSeverityT)x, CL_LOG_AREA_UNSPECIFIED, CL_LOG_CONTEXT_UNSPECIFIED, \
-                  __str);                                               \
+                         "%s", __str);                                  \
         }                                                               \
         if (1)                                                          \
         {                                                               \
-            snprintf(__str,256,CL_DEBUG_SP y);                          \
-            clDbgMsg((int)getpid(),__FILE__, __LINE__, __FUNCTION__,x,__str); \
+            /* snprintf(__str,256,CL_DEBUG_SP y); */                    \
+            clDbgMsg((int)getpid(),__FILE__, __LINE__, __FUNCTION__,x,__str);  \
         }                                                               \
     }while (0)
 
@@ -213,8 +213,7 @@ do                                               \
 {                                                \
     ClBoolT val = (expr)?CL_TRUE:CL_FALSE;       \
     if (clDbgPauseOnCodeError)                   \
-      { if (!val )                               \
-        clDbgCodeError(0,("Assertion failed"));  \
+    { if (!val ) clDbgCodeError(0,("%s","Assertion failed")); \
       } else                                     \
         assert(val);                             \
 } while(0)    

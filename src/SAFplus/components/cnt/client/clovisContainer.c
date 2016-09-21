@@ -258,7 +258,6 @@ clCntNodeFind(ClCntHandleT      containerHandle,
   CclContainer_t        *pContainer    = NULL;
   ClCntNodeHandleT      tempNodeHandle = CL_HANDLE_INVALID_VALUE;
   ClRcT                 errorCode      = CL_OK;
-  BaseLinkedListNode_t  *pBLlNode      = NULL;
 
   nullChkRet(pNodeHandle);
   *pNodeHandle = CL_HANDLE_INVALID_VALUE;
@@ -281,11 +280,11 @@ clCntNodeFind(ClCntHandleT      containerHandle,
   
   if(errorCode != CL_OK )
   {
+      *pNodeHandle = NULL;
     return (errorCode);
   }
   else
   {
-    pBLlNode     = (BaseLinkedListNode_t *) tempNodeHandle;
     *pNodeHandle = tempNodeHandle;
     return (CL_OK);
   }

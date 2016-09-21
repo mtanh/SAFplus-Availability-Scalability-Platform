@@ -1591,7 +1591,7 @@ ClRcT VDECL(cpmQuiescingComplete)(ClEoDataT data,
 {
     ClRcT rc = CL_OK;
     ClCpmQuiescingCompleteT responseBuff;
-    ClUint32T cbType = 0;
+    // ClUint32T cbType = 0;
     ClIocNodeAddressT masterIocAddress;
 
     rc = VDECL_VER(clXdrUnmarshallClCpmQuiescingCompleteT, 4, 0, 0)(inMsgHandle,
@@ -1599,7 +1599,7 @@ ClRcT VDECL(cpmQuiescingComplete)(ClEoDataT data,
     CL_CPM_CHECK(CL_LOG_SEV_ERROR, ("Invalid Buffer Passed \n"),
             rc);
 
-    CL_CPM_INVOCATION_CB_TYPE_GET(responseBuff.invocation, cbType);
+    // CL_CPM_INVOCATION_CB_TYPE_GET(responseBuff.invocation, cbType);
 
     if (CL_CPM_IS_ACTIVE())
     {

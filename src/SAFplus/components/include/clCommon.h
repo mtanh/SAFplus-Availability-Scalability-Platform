@@ -70,6 +70,8 @@ extern "C" {
 /** define Disable */    
 #define CL_DISABLE  0
 
+#define IGNORE_RETURN(x) do { (void) (x+1); } while(0);
+    
 /** 
  * These define all the possible states that a component/node can be in.
  */

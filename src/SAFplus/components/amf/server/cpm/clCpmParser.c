@@ -1264,7 +1264,6 @@ void cpmParseUserConfigCompArgs(ClParserPtrT componentInstance,
                                 ClCpmCompConfigT *compConfig)
 {
     ClRcT rc = CL_OK;
-    
     ClParserPtrT args = NULL;
     ClParserPtrT arg = NULL;
     ClParserPtrT exeName = NULL;
@@ -1296,6 +1295,8 @@ void cpmParseUserConfigCompArgs(ClParserPtrT componentInstance,
                            CL_LOG_HANDLE_APP);
 
         strncpy(compConfig->argv[0], value, strlen(value));
+        rc++;  // stop compiler warnings
+        
     }
 
     CPM_PARSER_HANDLE_NULL_CHECK(args,
@@ -1976,7 +1977,6 @@ ClRcT cpmBmAddComponent(const ClCharT *compName, ClUint32T bootLevel)
     bootRowT *newComp = NULL;
 
     bootRowT *p = NULL;
-    bootRowT *prev = NULL;
 
     bootTable = gpClCpm->bmTable->table;
     while (bootTable != NULL)
@@ -1996,7 +1996,7 @@ ClRcT cpmBmAddComponent(const ClCharT *compName, ClUint32T bootLevel)
             strcpy(newComp->compName, compName);
             newComp->pNext = NULL;
 
-            prev = p = bootRow;
+            p = bootRow;
             if (p == NULL)
             {
                 /*

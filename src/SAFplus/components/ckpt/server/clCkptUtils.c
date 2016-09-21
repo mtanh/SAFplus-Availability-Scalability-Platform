@@ -393,13 +393,12 @@ ClRcT _ckptMasterDBInfoDeleteCallback(ClHandleDatabaseHandleT databaseHandle,
                                       ClHandleT               handle, 
                                       void                    *pCookie)
 {
-    ClRcT                   rc              = CL_OK;
     CkptMasterDBEntryT      *pStoredData    = NULL;
     
     /*
      * Retrieve the information associated with the passed handle.
      */
-    rc = clHandleCheckout(gCkptSvr->masterInfo.masterDBHdl, handle, (void **)&pStoredData);
+    IGNORE_RETURN(clHandleCheckout(gCkptSvr->masterInfo.masterDBHdl, handle, (void **)&pStoredData));
     
     /*
      * Delete the associated retention timer.
@@ -407,8 +406,8 @@ ClRcT _ckptMasterDBInfoDeleteCallback(ClHandleDatabaseHandleT databaseHandle,
     if(pStoredData->retenTimerHdl)
         clTimerDelete(&pStoredData->retenTimerHdl);
         
-    rc = clHandleCheckin(gCkptSvr->masterInfo.masterDBHdl, handle);
-    rc = clHandleDestroy(gCkptSvr->masterInfo.masterDBHdl, handle);
+    IGNORE_RETURN(clHandleCheckin(gCkptSvr->masterInfo.masterDBHdl, handle));
+    IGNORE_RETURN(clHandleDestroy(gCkptSvr->masterInfo.masterDBHdl, handle));
     /*
      * Decrement the count of master handles.
      */
@@ -450,9 +449,7 @@ ClRcT _ckptClientDBInfoDeleteCallback(ClHandleDatabaseHandleT databaseHandle,
                                       ClHandleT               handle,     
                                       void                    *pCookie)
 {
-    ClRcT rc = CL_OK;
-    
-    rc = clHandleDestroy(gCkptSvr->masterInfo.clientDBHdl, handle);
+    IGNORE_RETURN(clHandleDestroy(gCkptSvr->masterInfo.clientDBHdl, handle));
     /*
      * Decrement the count of client handles.
      */

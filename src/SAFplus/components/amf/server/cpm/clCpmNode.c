@@ -1797,7 +1797,7 @@ ClRcT cpmFailoverNode(ClGmsNodeIdT nodeId, ClBoolT scFailover)
     ClCpmLT *cpmL = NULL;
     ClCpmLocalInfoT *pCpmLocalInfo = NULL;
     SaNameT nodeName = {0};
-    ClUint32T slotNumber = 0;
+    //ClUint32T slotNumber = 0;
     ClIocNodeAddressT nodeAddress = 0;
 
     clOsalMutexLock(&gpClCpm->cpmMutex);
@@ -1823,7 +1823,7 @@ ClRcT cpmFailoverNode(ClGmsNodeIdT nodeId, ClBoolT scFailover)
         return CL_OK;
     }
 
-    slotNumber = pCpmLocalInfo->slotNumber;
+    //slotNumber = pCpmLocalInfo->slotNumber;
     nodeAddress = pCpmLocalInfo->cpmAddress.nodeAddress;
     cpmL->pCpmLocalInfo = NULL;
 

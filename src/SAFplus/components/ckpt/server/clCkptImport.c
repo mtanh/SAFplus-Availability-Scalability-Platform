@@ -219,7 +219,6 @@ clCkptMasterAddressUpdate(ClIocNodeAddressT  leader,
 void   _clCkptAddressesUpdate
           (ClGmsClusterNotificationBufferT *notificationBuffer)
 {
-    ClRcT  rc = CL_OK;
 
     if( NULL  == gCkptSvr)
     {
@@ -232,8 +231,7 @@ void   _clCkptAddressesUpdate
      */
     CKPT_LOCK(gCkptSvr->masterInfo.ckptMasterDBSem);
 
-    rc = clCkptMasterAddressUpdate(notificationBuffer->leader,
-            notificationBuffer->deputy);
+    IGNORE_RETURN(clCkptMasterAddressUpdate(notificationBuffer->leader, notificationBuffer->deputy));
 
     /*
      * Unlock the master DB.

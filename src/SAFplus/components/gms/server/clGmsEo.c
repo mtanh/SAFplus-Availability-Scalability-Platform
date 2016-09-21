@@ -416,7 +416,7 @@ void dispatchLoop(void)
           if (EINTR == err) continue;
 
           errorStr[0] = 0; /* just in case strerror does not fill it in */
-          strerror_r(err, errorStr, 79);
+          IGNORE_RETURN(strerror_r(err, errorStr, 79));
           break;
         }
       if ((!unblockNow && (FD_ISSET(amf_dispatch_fd,&read_fds)))) saAmfDispatch(amfHandle, SA_DISPATCH_ALL);

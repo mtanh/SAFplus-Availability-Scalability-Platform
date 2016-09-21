@@ -926,7 +926,7 @@ _clAmsSAFaultReportCallback(
                             CL_IN  ClUint32T  repairNecessary)
 {
 
-    ClUint32T  alarmHandle = -1;
+    //ClUint32T  alarmHandle = -1;
     ClAmsCompT  *comp = NULL;
     ClAmsSUT  *su = NULL;
     ClAmsNodeT  *node = NULL;
@@ -943,7 +943,9 @@ _clAmsSAFaultReportCallback(
         AMS_CHECK_SU   ( su   = (ClAmsSUT   *) comp->config.parentSU.ptr );
         AMS_CHECK_NODE ( node = (ClAmsNodeT *) su->config.parentNode.ptr );
         memcpy(&faultyCompName, &entity->name, sizeof(entity->name));
+#if 0        
         alarmHandle = comp->status.alarmHandle;
+#endif        
     }
     else if ( entity->type == CL_AMS_ENTITY_TYPE_NODE )
     {
@@ -954,32 +956,33 @@ _clAmsSAFaultReportCallback(
         /*
          * For NON-asp aware nodes, get the faulty comp name. of the proxied
          */
+        int found = 0;
         if(!node->config.isASPAware)
         {
             for(entityRef = clAmsEntityListGetFirst(&node->config.suList);
-                entityRef != NULL;
+                (entityRef != NULL) && (!found);
                 entityRef = clAmsEntityListGetNext(&node->config.suList, entityRef))
             {
                 ClAmsEntityRefT *compRef = NULL;
                 ClAmsSUT *su = (ClAmsSUT*)entityRef->ptr;
                 for(compRef = clAmsEntityListGetFirst(&su->config.compList);
-                    compRef != NULL;
+                    (compRef != NULL) && (!found);
                     compRef = clAmsEntityListGetNext(&su->config.compList, compRef))
                 {
                     ClAmsCompT *comp = (ClAmsCompT*)compRef->ptr;
                     if(comp->status.recovery)
                     {
-                        memcpy(&faultyCompName, &comp->config.entity.name, 
-                               sizeof(comp->config.entity.name));
-                        goto update_alarm_handle;
+                        memcpy(&faultyCompName, &comp->config.entity.name, sizeof(comp->config.entity.name));
+                        found = 1;
+                        break;
                     }
                 }
             }
         }
-        memcpy(&faultyCompName, &entity->name, sizeof(entity->name));        
-
-        update_alarm_handle:
+        if (!found) memcpy(&faultyCompName, &entity->name, sizeof(entity->name));
+#if 0        
         alarmHandle = node->status.alarmHandle;
+#endif        
     }
     else
     {

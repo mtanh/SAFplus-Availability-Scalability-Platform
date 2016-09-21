@@ -310,9 +310,9 @@ static void sendHashDestroyCallBack(ClCntKeyHandleT userKey,
 
 ClRcT clRmdObjInit(ClRmdObjHandleT *p)
 {
-    ClRcT retCode = CL_OK, retCode1;
+    ClRcT retCode = CL_OK;
     ClRmdObjT *pRmdObject = NULL;
-    unsigned long timeStamp = 0;
+    //unsigned long timeStamp = 0;
     struct timeval tm1;
 
 #ifdef DEBUG
@@ -352,7 +352,7 @@ ClRcT clRmdObjInit(ClRmdObjHandleT *p)
     }
 
     gettimeofday(&tm1, NULL);
-    timeStamp = tm1.tv_sec * 1000000 + tm1.tv_usec;
+    //timeStamp = tm1.tv_sec * 1000000 + tm1.tv_usec;
     pRmdObject->msgId = 1;
     retCode = clOsalMutexCreate(&pRmdObject->semaForSendHashTable);
 
@@ -368,7 +368,7 @@ ClRcT clRmdObjInit(ClRmdObjHandleT *p)
     {
         RMD_DBG1((" RMD  recv Mutex creation failed\n"));
 
-        retCode1 = clOsalMutexDelete(pRmdObject->semaForSendHashTable);
+        IGNORE_RETURN(clOsalMutexDelete(pRmdObject->semaForSendHashTable));
         CL_FUNC_EXIT();
         return (retCode);
     }
@@ -382,8 +382,8 @@ ClRcT clRmdObjInit(ClRmdObjHandleT *p)
     {
         RMD_DBG1((" RMD  send Hash table creation failed\n"));
 
-        retCode1 = clOsalMutexDelete(pRmdObject->semaForRecvHashTable);
-        retCode1 = clOsalMutexDelete(pRmdObject->semaForSendHashTable);
+        IGNORE_RETURN(clOsalMutexDelete(pRmdObject->semaForRecvHashTable));
+        IGNORE_RETURN(clOsalMutexDelete(pRmdObject->semaForSendHashTable));
         CL_FUNC_EXIT();
         return (retCode);
     }
@@ -396,9 +396,9 @@ ClRcT clRmdObjInit(ClRmdObjHandleT *p)
     {
         RMD_DBG1((" RMD  recv Hash table creation failed\n"));
 
-        retCode1 = clCntDelete(pRmdObject->rcvRecContainerHandle);
-        retCode1 = clOsalMutexDelete(pRmdObject->semaForRecvHashTable);
-        retCode1 = clOsalMutexDelete(pRmdObject->semaForSendHashTable);
+        IGNORE_RETURN(clCntDelete(pRmdObject->rcvRecContainerHandle));
+        IGNORE_RETURN(clOsalMutexDelete(pRmdObject->semaForRecvHashTable));
+        IGNORE_RETURN(clOsalMutexDelete(pRmdObject->semaForSendHashTable));
         CL_FUNC_EXIT();
         return (retCode);
     }
@@ -408,10 +408,10 @@ ClRcT clRmdObjInit(ClRmdObjHandleT *p)
     if (retCode != CL_OK)
     {
         RMD_DBG1((" RMD  Sync Handle Database create failed\n"));
-        retCode1 = clCntDelete(pRmdObject->sndRecContainerHandle);
-        retCode1 = clCntDelete(pRmdObject->rcvRecContainerHandle);
-        retCode1 = clOsalMutexDelete(pRmdObject->semaForRecvHashTable);
-        retCode1 = clOsalMutexDelete(pRmdObject->semaForSendHashTable);
+        IGNORE_RETURN(clCntDelete(pRmdObject->sndRecContainerHandle));
+        IGNORE_RETURN(clCntDelete(pRmdObject->rcvRecContainerHandle));
+        IGNORE_RETURN(clOsalMutexDelete(pRmdObject->semaForRecvHashTable));
+        IGNORE_RETURN(clOsalMutexDelete(pRmdObject->semaForSendHashTable));
 
         CL_FUNC_EXIT();
         return retCode;

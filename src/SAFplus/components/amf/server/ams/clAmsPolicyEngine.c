@@ -18872,10 +18872,10 @@ clAmsPeCompUpdateReadinessState(
         CL_IN       ClAmsCompT *comp)
 {
     ClAmsReadinessStateT rstate;
-    ClAmsReadinessStateT oldRstate;
+    //ClAmsReadinessStateT oldRstate;
     
     AMS_CHECK_COMP ( comp );
-    oldRstate = comp->status.readinessState;
+    //oldRstate = comp->status.readinessState;
     
     AMS_CALL ( clAmsPeCompComputeReadinessState(comp, &rstate) );
 
