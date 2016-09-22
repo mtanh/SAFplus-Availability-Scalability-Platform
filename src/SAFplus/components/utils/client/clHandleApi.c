@@ -837,8 +837,7 @@ clHandleCheckin(
     ec = pthread_mutex_lock(&hdbp->mutex);
     if (ec != 0)
     {
-        int err = errno;
-        clDbgCodeError(CL_HANDLE_RC(CL_ERR_MUTEX_ERROR), ("Handle database mutex lock failed error: %s (%d)", strerror(err), err) );
+        clDbgCodeError(CL_HANDLE_RC(CL_ERR_MUTEX_ERROR), ("Handle database mutex lock failed error: %s (%d)", strerror(errno), errno) );
         return CL_HANDLE_RC(CL_ERR_MUTEX_ERROR);
     }
 
@@ -880,8 +879,7 @@ clHandleCheckin(
     ec = pthread_mutex_unlock(&hdbp->mutex);
     if (ec != 0)
     {
-        int err = errno;
-        clDbgCodeError(CL_HANDLE_RC(CL_ERR_MUTEX_ERROR), ("Handle database mutex unlock failed error: %s (%d)", strerror(err), err) );
+        clDbgCodeError(CL_HANDLE_RC(CL_ERR_MUTEX_ERROR), ("Handle database mutex unlock failed error: %s (%d)", strerror(errno), errno) );
         return CL_HANDLE_RC(CL_ERR_MUTEX_ERROR); /* This can be devastating */
     }
     /* This check to avoid recursive call from LogClient */
