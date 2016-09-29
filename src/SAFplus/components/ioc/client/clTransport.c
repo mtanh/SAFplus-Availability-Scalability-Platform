@@ -3200,10 +3200,25 @@ ClBoolT clTransportBridgeEnabled(ClIocNodeAddressT node)
  */
 ClRcT clTransportFdGet(ClIocCommPortHandleT portHandle, const ClCharT *xportType, ClInt32T *pFd)
 {
-    ClTransportLayerT *xport = findTransport(xportType);
+    ClTransportLayerT *xport=NULL;
+    
+    if (xportType == NULL)
+    {
+        register ClListHeadT *iter;
+        CL_LIST_FOR_EACH(iter, &gClTransportList)  /* there isn't an api to get the list head so I need to to this weird construct */
+          {
+          xport = CL_LIST_ENTRY(iter, ClTransportLayerT, xportList);
+          break;
+          }   
+    }
+    else
+    {        
+      xport = findTransport(xportType);
+    }
+    
     if(!xport)
     {
-        clLogDebug("XPORT", "FIND", "Transport [%s] not registered", xportType);
+        clLogDebug("XPORT", "FIND", "Transport [%s] not registered", (xportType) ? xportType: "ALL");
         return CL_ERR_NOT_EXIST;
     }
     return xport->xportFdGet(portHandle, pFd);
