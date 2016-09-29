@@ -11,7 +11,7 @@ If ARD web server is running you can use the  browse to /shell in a web browser
 # OR at the bash shell prompt:
 # export PYTHONPATH=<ardDir>/lib:<ardDir>/bin
 # cd <ArdDir>/bin
-# <ASP_DIR>/bin/asp_run python
+# <ASP_DIR>/bin/safplus_run python
 
 # A simple way to do this is to cd to <ardDir> (this directory) and then do:
 #  export PYTHONPATH=`pwd`/lib:`pwd`/bin

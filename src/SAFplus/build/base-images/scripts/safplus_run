@@ -22,19 +22,19 @@
 ################################################################################
 
 if [ "$1" == "-h" -o $# == 0 ]; then
-  echo "asp_run will run a component within a running ASP environment but outside of"
-  echo "ASP control.  This means that ASP will not start or stop your program, or"
+  echo "safplus_run will run a component within a running SAFplus environment but outside of"
+  echo "SAFplus control.  This means that SAFplus will not start or stop your program, or"
   echo "monitor it for faults."
   echo
   echo "usage: $0 <program> <args>"
   echo
   echo Examples:
-  echo   /root/asp/bin/asp_run /root/asp/bin/mycomp anArg
-  echo   /root/asp/bin/asp_run python myprog.py
+  echo   /root/asp/bin/safplus_run /root/asp/bin/mycomp anArg
+  echo   /root/asp/bin/safplus_run python myprog.py
   echo  
   echo Note: 
   echo To debug your component, it may be convenient to use:
-  echo   /root/asp/bin/asp_run gdb
+  echo "  /root/asp/bin/safplus_run gdb <your component>"
   exit 1
 fi 
 

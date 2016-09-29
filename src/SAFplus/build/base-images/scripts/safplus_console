@@ -40,4 +40,4 @@ source $ASP_DIR/etc/asp.conf
 source $ASP_DIR/etc/asp_run.env
 
 export CL_LOG_SEVERITY=ERROR
-exec ${0%/*}/asp_run ${ASP_BINDIR}/safplus_debug
+exec ${0%/*}/safplus_run ${ASP_BINDIR}/safplus_debug
