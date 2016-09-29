@@ -22,7 +22,8 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-
+#include <clCommon.h>
+#include <clIocApi.h>    
 #include <clIocConfig.h>
 #include <clIocSetup.h>
 
