@@ -25,6 +25,7 @@ import signal
 import safplus_watchdog
 import commands
 import shutil
+import errno
 # import pdb
 
 # RemovePersistentDb = False
@@ -230,7 +231,6 @@ def mkdir(d):
     try: # Make the directory
       os.makedirs(d)
     except OSError, e:  # Already exists
-      import errno
       if e.errno != errno.EEXIST: raise    
 
 
