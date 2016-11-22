@@ -123,6 +123,7 @@ def stop_watchdog():
 def restart_safplus():
     # remove no restart file, to make sure a restart occurs
     safplus.remove_stop_file()
+    safplus.create_reboot_file()
     safplus.stop_amf()
     # No need to start SAFplus, Watchdog will check and start AMF after 30 sec
 

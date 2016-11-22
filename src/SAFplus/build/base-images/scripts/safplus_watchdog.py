@@ -55,7 +55,7 @@ def watchdog_loop():
             #pid = safplus.get_amf_pid()
             #if pid == 0:
             if not amfproc:
-                if os.path.isfile(stop_file):   # Kill watchdog if stop file exists
+                if os.path.isfile(stop_file) and not os.path.isfile(reboot_file):
                     logging.info("Stop file exists: SAFplus is stopping")
                     return
                 else:                           # Restart AMF if stop file not found

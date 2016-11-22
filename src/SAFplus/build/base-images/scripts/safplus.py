@@ -109,6 +109,11 @@ def safe_remove(f):
         log.debug("Exception %s while removing %s" % (str(e),f))
         os.system('rm -f %s' %f)
 
+def create_reboot_file():
+    log.debug("create reboot file")
+    rebootFile = SAFPLUS_RUN_DIR + '/' + SAFPLUS_REBOOT_FILE
+    touch(rebootFile) 
+
 def remove_stop_file():
     stopFile = SAFPLUS_RUN_DIR + '/' + SAFPLUS_STOP_FILE
     safe_remove(stopFile)
